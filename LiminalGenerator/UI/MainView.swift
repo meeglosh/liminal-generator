@@ -33,6 +33,10 @@ struct MainView: View {
                             synthCardContent
                         }
 
+                        LiminalCard(title: "BASSLINE") {
+                            bassCardContent
+                        }
+
                         LiminalCard(title: "GLOBAL ENV") {
                             globalEnvCardContent
                         }
@@ -156,7 +160,76 @@ struct MainView: View {
                 value: $engine.color,
                 sliderAccessibilityIdentifier: "colorSlider"
             )
+
+            waveformChipRow
         }
+    }
+
+    /// Single-select SINE/TRIANGLE/SQUARE/SAW row driving
+    /// `engine.waveform` (melody oscillator shape only).
+    private var waveformChipRow: some View {
+        HStack(spacing: LiminalMetrics.stackSmall) {
+            ForEach(LiminalWaveform.allCases, id: \.self) { wave in
+                LiminalSelectableChip(
+                    text: wave.rawValue,
+                    isSelected: engine.waveform == wave
+                ) {
+                    engine.waveform = wave
+                }
+                .accessibilityIdentifier("waveformChip_\(wave.rawValue)")
+            }
+        }
+    }
+
+    // MARK: - BASSLINE card
+
+    private var bassCardContent: some View {
+        VStack(alignment: .leading, spacing: LiminalMetrics.stackMedium) {
+            HStack {
+                Text("ENABLE BASS")
+                    .font(.spaceMono(size: 12))
+                    .tracking(1)
+                    .foregroundColor(.liminalTapeHiss)
+                Spacer()
+                LiminalToggle(isOn: $engine.bassEnabled)
+                    .accessibilityIdentifier("bassToggle")
+            }
+            .padding(.bottom, LiminalMetrics.stackSmall)
+            .overlay(alignment: .bottom) {
+                Rectangle()
+                    .fill(Color.liminalSurfaceContainerHighest)
+                    .frame(height: 1)
+            }
+
+            if engine.bassEnabled {
+                VStack(spacing: LiminalMetrics.stackMedium) {
+                    LiminalSliderRow(
+                        label: "COLOR",
+                        subLabel: "FILTER",
+                        leftEndpoint: "DARK",
+                        rightEndpoint: "BRIGHT",
+                        value: $engine.bassColor,
+                        sliderAccessibilityIdentifier: "bassColorSlider"
+                    )
+
+                    LiminalSliderRow(
+                        label: "LEVEL",
+                        subLabel: nil,
+                        leftEndpoint: "-INF",
+                        rightEndpoint: "+6dB",
+                        value: $engine.bassLevel,
+                        sliderAccessibilityIdentifier: "bassLevelSlider"
+                    )
+
+                    DiceDeckButton(title: "Generate Bass") {
+                        engine.regenerateBass()
+                    }
+                    .accessibilityIdentifier("generateBassButton")
+                }
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+        .animation(.easeOut(duration: 0.2), value: engine.bassEnabled)
     }
 
     // MARK: - GLOBAL ENV card

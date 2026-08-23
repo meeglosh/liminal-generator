@@ -223,14 +223,42 @@ struct LiminalCard<Content: View>: View {
 
 struct LiminalChip: View {
     let text: String
+    /// When true, renders filled with CRT green (selected state) instead of
+    /// the default thin-outline/dim-text look. Purely visual — this struct
+    /// stays a static label; `LiminalSelectableChip` below wraps it in a
+    /// tappable button for single-select rows like the waveform picker.
+    var isSelected: Bool = false
+
     var body: some View {
         Text(text.uppercased())
             .font(.spaceMono(size: 10))
             .tracking(1.5)
-            .foregroundColor(.liminalOnSurfaceVariant)
+            .foregroundColor(isSelected ? .liminalOnPrimary : .liminalOnSurfaceVariant)
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
-            .overlay(Rectangle().stroke(Color.liminalOutlineVariant, lineWidth: 1))
+            .background(isSelected ? Color.liminalCRTGreenDim : Color.clear)
+            .overlay(Rectangle().stroke(isSelected ? Color.liminalCRTGreenDim : Color.liminalOutlineVariant, lineWidth: 1))
+    }
+}
+
+/// Tappable single-select chip built on `LiminalChip`: taps fire a light
+/// haptic (matching `LiminalToggle`'s pattern) then `action`. Used for the
+/// SYNTH card's waveform row (SINE/TRIANGLE/SQUARE/SAW).
+struct LiminalSelectableChip: View {
+    let text: String
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            action()
+        } label: {
+            LiminalChip(text: text, isSelected: isSelected)
+                .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
     }
 }
 

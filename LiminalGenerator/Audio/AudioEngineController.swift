@@ -94,13 +94,42 @@ final class AudioEngineController: ObservableObject {
     }
 
     /// Synth-only filter tone bias: 0...1, default ~0.5, dark(0)...bright(1).
-    /// Never affects the drum loop bus.
+    /// Redefined per SPEC.md addendum 2: now directly sets the BASE cutoff
+    /// of a real 24dB/octave lowpass (`synthColorCutoffHz`, DSPMath.swift) --
+    /// a dramatic, full-range log sweep, not the old mild multiplier. Never
+    /// affects the drum loop bus or the bassline.
     @Published var color: Float = 0.5 {
         didSet { dsp.setColor(color) }
     }
 
+    /// Melody voice oscillator waveform (SPEC.md addendum 2). Default
+    /// `.triangle`. Never affects the bassline or drums.
+    @Published var waveform: LiminalWaveform = .triangle {
+        didSet { dsp.setWaveform(waveform) }
+    }
+
+    /// Default false (SPEC.md addendum 2).
+    @Published var bassEnabled: Bool = false {
+        didSet { dsp.setBassEnabled(bassEnabled) }
+    }
+
+    /// 0...1, default ~0.5 -- own independent 24dB lowpass instance, same
+    /// log-mapping as the melody's `color`.
+    @Published var bassColor: Float = 0.5 {
+        didSet { dsp.setBassColor(bassColor) }
+    }
+
+    /// 0...1 (maps -inf...+6dB, same curve as `drumLevel`), default ~0.65.
+    @Published var bassLevel: Float = 0.65 {
+        didSet { dsp.setBassLevel(bassLevel) }
+    }
+
     @Published private(set) var currentPattern: ArpeggioPattern
     @Published private(set) var currentBeat: DrumPattern
+    /// Internal only -- no UI-facing readout (per SPEC.md: "No SEQ/BPM
+    /// readout row (not requested)" for the BASSLINE card). Kept so
+    /// `regenerateBass()` and `renderOffline` can read/reseed it.
+    private var currentBassPattern: BasslinePattern
     /// `round(baseTempoSource * speedMultiplier(speed))`, where
     /// `baseTempoSource` is `currentBeat.bpm` while `drumsEnabled`, else the
     /// fixed `baseMelodyBPM` constant. What the SYNTH card's BPM readout
@@ -118,13 +147,18 @@ final class AudioEngineController: ObservableObject {
     init() {
         let pattern = PatternGenerator.randomArpeggioPattern()
         let beat = PatternGenerator.randomDrumPattern()
+        let bassPattern = BasslineGenerator.randomBasslinePattern()
         currentPattern = pattern
         currentBeat = beat
+        currentBassPattern = bassPattern
         dsp = LiminalDSPCore(pattern: pattern, beat: beat,
                               loopBuffer: LoopLoader.buffers[beat.loopIndex],
+                              bassPattern: bassPattern,
                               space: 0.55, age: 0.4,
                               drumsEnabled: false, drumLevel: 0.65,
                               speed: 0.5, color: 0.5,
+                              waveform: .triangle,
+                              bassEnabled: false, bassColor: 0.5, bassLevel: 0.65,
                               sampleRate: Self.sampleRate)
 
         configureAudioSession()
@@ -163,10 +197,30 @@ final class AudioEngineController: ObservableObject {
         }
     }
 
+    /// Re-rolls root key, scale, and pattern shape. The bassline is NOT
+    /// re-rolled here -- it doesn't need to be. Bass notes are stored as
+    /// scale-degree ROLES (root/fifth/third/octaveUp), resolved against
+    /// whatever the CURRENT `ArpeggioPattern`'s root+scale is at the moment
+    /// each bass note triggers (see `LiminalDSPCore.doTick` /
+    /// `BasslineGenerator.resolveBassMIDI`) -- so as soon as `dsp.setPattern`
+    /// below takes effect, every subsequent bass note automatically
+    /// harmonizes with the new key. This is the non-negotiable invariant
+    /// from SPEC.md addendum 2 ("must never sound like it's in the wrong
+    /// key after a melody regenerate"); verified in the audio agent's
+    /// sanity harness by regenerating the melody repeatedly and confirming
+    /// bass notes stay valid scale degrees of whatever the new key is.
     func regenerateMelody() {
         let pattern = PatternGenerator.randomArpeggioPattern()
         currentPattern = pattern
         dsp.setPattern(pattern)
+    }
+
+    /// Re-rolls a new bassline rhythm/note pattern against the CURRENT
+    /// key/scale (does not touch key/scale itself).
+    func regenerateBass() {
+        let pattern = BasslineGenerator.randomBasslinePattern()
+        currentBassPattern = pattern
+        dsp.setBassPattern(pattern)
     }
 
     /// Picks a random loop that is NEVER the currently-active one (guaranteed
@@ -191,9 +245,12 @@ final class AudioEngineController: ObservableObject {
                         progress: @escaping @Sendable (Double) -> Void) async throws -> URL {
         let seed = OfflineRenderSeed(pattern: currentPattern, beat: currentBeat,
                                       loopBuffer: LoopLoader.buffers[currentBeat.loopIndex],
+                                      bassPattern: currentBassPattern,
                                       space: space, age: age,
                                       drumsEnabled: drumsEnabled, drumLevel: drumLevel,
-                                      speed: speed, color: color)
+                                      speed: speed, color: color,
+                                      waveform: waveform,
+                                      bassEnabled: bassEnabled, bassColor: bassColor, bassLevel: bassLevel)
         return try await Self.performOfflineRender(seed: seed,
                                                      duration: duration,
                                                      fadeIn: fadeIn,
@@ -217,9 +274,12 @@ final class AudioEngineController: ObservableObject {
 
         let dsp = LiminalDSPCore(pattern: seed.pattern, beat: seed.beat,
                                   loopBuffer: seed.loopBuffer,
+                                  bassPattern: seed.bassPattern,
                                   space: seed.space, age: seed.age,
                                   drumsEnabled: seed.drumsEnabled, drumLevel: seed.drumLevel,
                                   speed: seed.speed, color: seed.color,
+                                  waveform: seed.waveform,
+                                  bassEnabled: seed.bassEnabled, bassColor: seed.bassColor, bassLevel: seed.bassLevel,
                                   sampleRate: sampleRate)
 
         let chunkFrames = 4_096
@@ -404,10 +464,15 @@ private struct OfflineRenderSeed: Sendable {
     let pattern: ArpeggioPattern
     let beat: DrumPattern
     let loopBuffer: LoopBuffer
+    let bassPattern: BasslinePattern
     let space: Float
     let age: Float
     let drumsEnabled: Bool
     let drumLevel: Float
     let speed: Float
     let color: Float
+    let waveform: LiminalWaveform
+    let bassEnabled: Bool
+    let bassColor: Float
+    let bassLevel: Float
 }

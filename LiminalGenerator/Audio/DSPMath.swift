@@ -85,24 +85,58 @@ let baseMelodyBPM: Double = 82
 
 // MARK: - COLOR
 
-/// COLOR (0...1) -> multiplier applied to the synth voice's filter
-/// open/dark cutoff frequencies at note-trigger time (see `SynthVoice.trigger`):
-/// 0.6x at color=0 (duller, warmer), 1.0x at the ~0.5 default (matches the
-/// pre-COLOR baseline tone exactly), 1.4x at color=1 (more open/present).
-/// Deliberately modest range -- plus a hard Hz clamp downstream -- so the
-/// pad-pluck stays warm and never harsh even at the bright extreme.
-@inline(__always) func synthColorFactor(_ color: Float) -> Float {
-    0.6 + clamp(color, 0, 1) * 0.8
+/// COLOR (0...1) -> the BASE cutoff frequency (Hz) of a real 24dB/octave
+/// lowpass (see `Lowpass24dB` below), logarithmically mapped so the whole
+/// slider sweeps the full audible range dramatically:
+/// color=0 -> ~70Hz (near-total closure, a muffled rumble), color=1 ->
+/// ~19kHz (effectively open/unfiltered). Shared by the melody synth
+/// (`SynthVoice`) and the bassline voice (`BassVoice`), each with its own
+/// independent filter instance and own COLOR value (`color`/`bassColor`).
+/// The per-note envelope-driven brightness contour (see `SynthVoice.trigger`)
+/// is layered ON TOP of this base cutoff, not a replacement for it.
+@inline(__always) func synthColorCutoffHz(_ color: Float) -> Float {
+    let c = clamp(color, 0, 1)
+    let minHz: Float = 70
+    let maxHz: Float = 19_000
+    return minHz * pow(maxHz / minHz, c)
 }
 
-/// Cheap triangle+sine blend oscillator shape, evaluated from a 0..<1 phase.
-@inline(__always) func triSine(phase: Float) -> Float {
-    let sine = sin(2 * Float.pi * phase)
-    // Naive (non-bandlimited) triangle -- acceptable here: the signal is
-    // always low-passed downstream and sits in a low/mid register, so
-    // aliasing is inaudible under the tape/lofi character.
-    let triangle = 4 * abs(phase - floor(phase + 0.5)) - 1
-    return 0.5 * sine + 0.5 * triangle
+/// Melody-only oscillator waveform, user-selectable via
+/// `AudioEngineController.waveform` (default `.triangle`). Never applied to
+/// the bassline or drums -- see SPEC.md addendum 2.
+enum LiminalWaveform: String, CaseIterable, Sendable {
+    case sine, triangle, square, saw
+}
+
+/// Evaluates one sample of the selected waveform from a 0..<1 phase.
+/// `square`/`saw` are deliberately naive (non-band-limited) per SPEC.md --
+/// the downstream 24dB lowpass and age/wow-flutter processing tame most
+/// aliasing harshness, acceptable for this app's lo-fi aesthetic.
+@inline(__always) func oscillatorSample(waveform: LiminalWaveform, phase: Float) -> Float {
+    switch waveform {
+    case .sine:
+        return sin(2 * Float.pi * phase)
+    case .triangle:
+        // Naive (non-bandlimited) triangle -- acceptable here: the signal is
+        // always low-passed downstream and sits in a low/mid register, so
+        // aliasing is inaudible under the tape/lofi character.
+        return 4 * abs(phase - floor(phase + 0.5)) - 1
+    case .square:
+        // Naive square: sign of sin(2*pi*phase), i.e. high for the first
+        // half of the cycle, low for the second.
+        return phase < 0.5 ? 1 : -1
+    case .saw:
+        // Naive ramp: 2*phase - 1 (phase is already wrapped to [0, 1)).
+        return 2 * (phase - floor(phase)) - 1
+    }
+}
+
+/// Shared -inf...+6dB level-to-linear-gain curve used by every "LEVEL"
+/// slider in the mix (drumLevel, bassLevel): 0 -> silence, 1 -> +6dB.
+@inline(__always) func levelToGainLinear(_ level: Float) -> Float {
+    guard level > 0.001 else { return 0 }
+    let db = lerp(-40, 6, clamp(level, 0, 1))
+    return dBToLinear(db)
 }
 
 // MARK: - One-pole filters
@@ -120,6 +154,27 @@ struct OnePoleLowpass {
     static func coefficient(cutoffHz: Float, sampleRate: Double) -> Float {
         let c = exp(-2 * Float.pi * cutoffHz / Float(sampleRate))
         return clamp(c, 0, 0.9995)
+    }
+}
+
+/// Real 24dB/octave (4th-order) lowpass: 4 cascaded one-pole stages run at
+/// the SAME coefficient. Cheap (4 multiply-adds/sample, no transcendental
+/// calls in the hot path -- the coefficient is precomputed by the caller
+/// exactly like `OnePoleLowpass`), stable for any coefficient in [0, 1),
+/// and gives a genuinely steep, dramatic rolloff -- unlike the single
+/// one-pole stage (6dB/octave) this replaces for COLOR. Used independently
+/// by the melody synth (`SynthVoice`) and the bassline voice (`BassVoice`).
+struct Lowpass24dB {
+    private var s1 = OnePoleLowpass()
+    private var s2 = OnePoleLowpass()
+    private var s3 = OnePoleLowpass()
+    private var s4 = OnePoleLowpass()
+
+    @inline(__always) mutating func process(_ x: Float, coeff: Float) -> Float {
+        let a = s1.process(x, coeff: coeff)
+        let b = s2.process(a, coeff: coeff)
+        let c = s3.process(b, coeff: coeff)
+        return s4.process(c, coeff: coeff)
     }
 }
 

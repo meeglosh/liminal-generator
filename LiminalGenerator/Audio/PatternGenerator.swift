@@ -160,8 +160,19 @@ enum PatternGenerator {
         steps.reserveCapacity(stepCount)
         for degree in degreeSequence {
             let midi = scaleDegreeMIDI(rootMIDI: rootMIDI, intervals: intervals, degree: degree)
+            // Hard invariant (SPEC.md addendum 2): a generated note must
+            // NEVER deviate from the pattern's root by more than 24
+            // semitones (2 octaves) in either direction. `buildDegreeSequence`
+            // + `scaleDegreeMIDI` are constructed so this should already
+            // hold by design (degrees are tiled from a single [0, 2k] ladder
+            // that always resolves to [root, root+24]), but this is an
+            // explicit, always-enforced clamp rather than trusting that math
+            // alone -- verified empirically in the sanity harness across
+            // every scale/shape combination.
+            let clampedMidi = clamp(midi, rootMIDI - 24, rootMIDI + 24)
+            assert(midi == clampedMidi, "PatternGenerator produced a note >24 semitones from root: \(midi) vs root \(rootMIDI)")
             let velocity = rng.nextHumanizedVelocity()
-            steps.append(ArpStep(midiNote: midi, velocity: velocity))
+            steps.append(ArpStep(midiNote: clampedMidi, velocity: velocity))
         }
 
         let displaySeq = makeDisplaySeq(steps: steps)

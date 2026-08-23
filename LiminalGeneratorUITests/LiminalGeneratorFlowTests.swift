@@ -92,6 +92,62 @@ final class LiminalGeneratorFlowTests: XCTestCase {
         XCTAssertTrue(colorSlider.isHittable, "COLOR slider should be scrolled into view")
         dragSlider(colorSlider)
 
+        // MARK: 3c. Waveform chips (SINE/TRIANGLE/SQUARE/SAW) exist below COLOR,
+        // default selection is TRIANGLE, and tapping a different chip flips
+        // the accessibility-selected state (LiminalSelectableChip reports
+        // .isSelected via the .isSelected accessibility trait).
+
+        let sineChip = app.buttons["waveformChip_sine"]
+        let triangleChip = app.buttons["waveformChip_triangle"]
+        let squareChip = app.buttons["waveformChip_square"]
+        let sawChip = app.buttons["waveformChip_saw"]
+
+        scrollUntilHittable(triangleChip, in: app)
+        XCTAssertTrue(sineChip.exists, "SINE waveform chip should exist")
+        XCTAssertTrue(triangleChip.exists, "TRIANGLE waveform chip should exist")
+        XCTAssertTrue(squareChip.exists, "SQUARE waveform chip should exist")
+        XCTAssertTrue(sawChip.exists, "SAW waveform chip should exist")
+        XCTAssertTrue(triangleChip.isSelected, "TRIANGLE should be selected by default (engine.waveform default is .triangle)")
+
+        XCTAssertTrue(squareChip.isHittable, "SQUARE chip should be scrolled into view")
+        squareChip.tap()
+
+        let selectionFlipped = waitFor(timeout: 2) {
+            squareChip.isSelected && !triangleChip.isSelected
+        }
+        XCTAssertTrue(selectionFlipped, "Tapping SQUARE should select it and deselect TRIANGLE")
+
+        // MARK: 3d. BASSLINE card (between SYNTH and GLOBAL ENV): enable ->
+        // COLOR/LEVEL sliders + GENERATE BASS appear -> adjust -> generate.
+
+        let bassToggle = app.buttons["bassToggle"]
+        scrollUntilHittable(bassToggle, in: app)
+        XCTAssertTrue(bassToggle.exists, "BASS toggle should exist")
+        bassToggle.tap()
+
+        let bassColorSlider = app.otherElements["bassColorSlider"]
+        XCTAssertTrue(bassColorSlider.waitForExistence(timeout: 3), "BASSLINE COLOR slider should appear once BASS is enabled")
+
+        let bassLevelSlider = app.otherElements["bassLevelSlider"]
+        XCTAssertTrue(bassLevelSlider.waitForExistence(timeout: 3), "BASSLINE LEVEL slider should appear once BASS is enabled")
+
+        let generateBassButton = app.buttons["generateBassButton"]
+        XCTAssertTrue(generateBassButton.waitForExistence(timeout: 3), "GENERATE BASS should appear once BASS is enabled")
+
+        scrollUntilHittable(bassColorSlider, in: app)
+        XCTAssertTrue(bassColorSlider.isHittable, "BASSLINE COLOR slider should be scrolled into view")
+        dragSlider(bassColorSlider)
+
+        scrollUntilHittable(bassLevelSlider, in: app)
+        XCTAssertTrue(bassLevelSlider.isHittable, "BASSLINE LEVEL slider should be scrolled into view")
+        dragSlider(bassLevelSlider)
+
+        scrollUntilHittable(generateBassButton, in: app)
+        XCTAssertTrue(generateBassButton.isHittable, "GENERATE BASS button should be scrolled into view")
+        generateBassButton.tap()
+
+        saveScreenshot(app, name: "03b_bassline_enabled.png")
+
         // MARK: 4. Scroll down to GLOBAL ENV; SPACE/AGE/SPEED sliders exist & adjustable
 
         let spaceSlider = app.otherElements["spaceSlider"]

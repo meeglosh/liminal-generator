@@ -2,15 +2,19 @@
 //  SynthVoice.swift
 //  LiminalGenerator
 //
-//  Polyphonic pad-pluck synth: 2 detuned oscillators (triangle+sine blend)
-//  per voice, a one-pole lowpass whose brightness follows the amplitude
-//  envelope, slow attack / long release. All state is plain structs/arrays
-//  owned by `SynthVoiceBank` -- no allocation after `init`.
+//  Polyphonic pad-pluck synth: 2 detuned oscillators (user-selectable
+//  waveform, see `LiminalWaveform`) per voice, a real 24dB/octave (4-pole)
+//  lowpass whose base cutoff is set directly by COLOR and whose brightness
+//  additionally follows the amplitude envelope, slow attack / long release.
+//  All state is plain structs/arrays owned by `SynthVoiceBank` -- no
+//  allocation after `init`.
 //
-//  COLOR (synth-only, never applied to the drum loop bus) is layered on
-//  top of that envelope-driven brightness contour as a trigger-time bias
-//  on the open/dark cutoff endpoints -- see `synthColorFactor` (DSPMath.swift)
-//  and the comment in `SynthVoice.trigger`.
+//  COLOR (synth-only, never applied to the drum loop bus or the bassline)
+//  sets the filter's BASE cutoff via `synthColorCutoffHz` (DSPMath.swift) --
+//  a dramatic, full-range logarithmic sweep. The existing per-note
+//  envelope-driven brightness contour is layered ON TOP of that base cutoff
+//  (opens further during the pluck attack, settles back toward release) --
+//  see the comment in `SynthVoice.trigger`.
 //
 
 import Foundation
@@ -34,12 +38,14 @@ struct SynthVoice {
     private var freq1: Float = 0
     private var freq2: Float = 0
     private var velocityGain: Float = 1
+    private var waveform: LiminalWaveform = .triangle
 
     // Filter "envelope" approximated as a coefficient blend (no per-sample
-    // exp() calls): bright at attack peak, darker as the note releases.
+    // exp() calls): bright at attack peak, darker as the note releases --
+    // layered on top of COLOR's base cutoff (see `trigger`).
     private var coeffOpen: Float = 0
     private var coeffClosed: Float = 0
-    private var filter = OnePoleLowpass()
+    private var filter = Lowpass24dB()
 
     // Simple deterministic-ish equal-power pan derived from the note at
     // trigger time; gains are precomputed once (not per sample).
@@ -58,7 +64,8 @@ struct SynthVoice {
                            attackRange: ClosedRange<Float>,
                            releaseRange: ClosedRange<Float>,
                            releaseScale: Float,
-                           colorFactor: Float,
+                           color: Float,
+                           waveform: LiminalWaveform,
                            rng: inout XorshiftRNG) {
         let baseFreq = midiToFrequency(Float(midiNote))
         let detuneCents = rng.nextFloat(in: 4...11)
@@ -69,6 +76,7 @@ struct SynthVoice {
         // from stolen voices carrying stale phase into an unrelated pitch.
         phase1 = rng.nextUnit()
         phase2 = rng.nextUnit()
+        self.waveform = waveform
 
         velocityGain = clamp(velocity, 0, 1)
 
@@ -80,20 +88,23 @@ struct SynthVoice {
         releaseCoeff = pow(0.0001, 1.0 / Float(max(1, Int(releaseMs / 1000 * Float(sampleRate)))))
         stage = .attack
 
-        // COLOR is layered here, ADDITIVELY on top of the existing
-        // envelope-driven brightness contour: it biases the note's own
-        // open/dark cutoff endpoints (via `colorFactor`, see
-        // `synthColorFactor`), captured once at trigger time -- the
-        // envelope (attack->release, `filterCoeff = lerp(coeffClosed,
-        // coeffOpen, envLevel)` in `nextSample`) still sweeps between them
-        // exactly as before. Applying at trigger time (rather than
-        // continuously per-sample) is inherently click-free: it only ever
-        // affects notes that haven't started yet, never an
-        // already-sounding voice. Hard-clamped so even color=1 stays warm.
-        let brightHz = clamp(rng.nextFloat(in: 2200...3600) * colorFactor, 150, 7_000)
-        let darkHz = clamp(rng.nextFloat(in: 500...900) * colorFactor, 80, 4_000)
-        coeffOpen = OnePoleLowpass.coefficient(cutoffHz: brightHz, sampleRate: sampleRate)
-        coeffClosed = OnePoleLowpass.coefficient(cutoffHz: darkHz, sampleRate: sampleRate)
+        // COLOR now sets a genuine, dramatic BASE cutoff (see
+        // `synthColorCutoffHz`: ~70Hz at color=0 up to ~19kHz at color=1,
+        // logarithmic) for the real 24dB/octave `filter`. The existing
+        // envelope-driven brightness contour is layered ON TOP of that base,
+        // not a replacement for it: `coeffOpen` opens further above the base
+        // during the pluck attack, `coeffClosed` settles back toward (and
+        // slightly below) the base as the note releases -- captured once
+        // here at trigger time (not per-sample) so a COLOR slider drag is
+        // inherently click-free: it only ever affects notes that haven't
+        // started yet, never an already-sounding voice. `smColor` (the
+        // caller-side smoother) provides the actual few-ms ramp so
+        // consecutive note triggers interpolate smoothly across a drag.
+        let baseCutoff = synthColorCutoffHz(color)
+        let openHz = clamp(baseCutoff * rng.nextFloat(in: 1.5...2.4), baseCutoff, 20_000)
+        let closedHz = clamp(baseCutoff * rng.nextFloat(in: 0.35...0.55), 40, baseCutoff)
+        coeffOpen = OnePoleLowpass.coefficient(cutoffHz: openHz, sampleRate: sampleRate)
+        coeffClosed = OnePoleLowpass.coefficient(cutoffHz: closedHz, sampleRate: sampleRate)
 
         // Spread voices gently across the stereo field based on pitch.
         let pan = clamp((Float(midiNote % 7) / 6 - 0.5) * 0.6, -0.5, 0.5)
@@ -130,8 +141,8 @@ struct SynthVoice {
         phase2 += freq2 / Float(sampleRate)
         if phase2 >= 1 { phase2 -= 1 }
 
-        let osc1 = triSine(phase: phase1)
-        let osc2 = triSine(phase: phase2)
+        let osc1 = oscillatorSample(waveform: waveform, phase: phase1)
+        let osc2 = oscillatorSample(waveform: waveform, phase: phase2)
         let raw = (osc1 + osc2) * 0.5
 
         let filterCoeff = lerp(coeffClosed, coeffOpen, envLevel)
@@ -158,7 +169,8 @@ final class SynthVoiceBank {
                 attackRange: ClosedRange<Float>,
                 releaseRange: ClosedRange<Float>,
                 releaseScale: Float,
-                colorFactor: Float,
+                color: Float,
+                waveform: LiminalWaveform,
                 rng: inout XorshiftRNG) {
         var targetIndex = 0
         var quietestLevel: Float = .greatestFiniteMagnitude
@@ -183,7 +195,8 @@ final class SynthVoiceBank {
                                      attackRange: attackRange,
                                      releaseRange: releaseRange,
                                      releaseScale: releaseScale,
-                                     colorFactor: colorFactor,
+                                     color: color,
+                                     waveform: waveform,
                                      rng: &rng)
     }
 

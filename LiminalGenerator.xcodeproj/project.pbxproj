@@ -40,6 +40,8 @@
 		AFE5ED7C1F347C640526E438 /* loop_95_dusty.wav in Resources */ = {isa = PBXBuildFile; fileRef = 919D956FD48BE77EE095FF9D /* loop_95_dusty.wav */; };
 		B0A262DE925A3BD1E67338F7 /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE6218B657A6195E2D2774BA /* Components.swift */; };
 		C2759AF789C59FF9F82DFA31 /* ImageLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3DE0A4BEBBBDDA25E2234B4A /* ImageLibrary.swift */; };
+		C388037C52080058DDF4E2FE /* BassSequencer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B0AF4662DE5803EE8B76C5E /* BassSequencer.swift */; };
+		D78B9609570B39FAB40D14DB /* BassVoice.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38EB8E1B224AF3AAF51C28B7 /* BassVoice.swift */; };
 		D82EC4EF3C49B98D4A82334F /* ClipRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA1EB060083888CB23AB2115 /* ClipRenderer.swift */; };
 		DD28F8C5D3B9C277EF2A7B51 /* loop_88_funky.wav in Resources */ = {isa = PBXBuildFile; fileRef = 49EAB0769DDFD54DF4C3180D /* loop_88_funky.wav */; };
 		DD66E4587BE1E13944549125 /* LiminalDSPCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 226F2045D6B6C873CE9CE85B /* LiminalDSPCore.swift */; };
@@ -48,6 +50,7 @@
 		E136F5DF6C23CD40832C5CCB /* TapeHiss.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03D609D0245CA89227517C22 /* TapeHiss.swift */; };
 		E3BD91E62D5DD663C1B0FA97 /* ParameterBus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 029D03F40D7046E1C4C64EC7 /* ParameterBus.swift */; };
 		E42845A82080E65B38F2E7B2 /* AudioEngineController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A99DEDE49CE908578E16081A /* AudioEngineController.swift */; };
+		E5BFB2B98D05C13D57ADE564 /* BasslinePattern.swift in Sources */ = {isa = PBXBuildFile; fileRef = E450C087094BF268C8B13A65 /* BasslinePattern.swift */; };
 		EECECD1FD2B462744BD6950B /* loop_76_midnight.wav in Resources */ = {isa = PBXBuildFile; fileRef = A1341C228BC284BF3B350F98 /* loop_76_midnight.wav */; };
 		FDA12998A21D88173E5E5408 /* ShareSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F4621AA0D516F218F0ADBD0 /* ShareSheet.swift */; };
 /* End PBXBuildFile section */
@@ -75,6 +78,7 @@
 		32EB3387454CE5A73E01191B /* VHSFrameCompositor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VHSFrameCompositor.swift; sourceTree = "<group>"; };
 		35B118C34DC35D3290834F18 /* loop_95_boombap.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = loop_95_boombap.wav; sourceTree = "<group>"; };
 		38B18B531C87BA506A5B1D5F /* AboutSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutSheet.swift; sourceTree = "<group>"; };
+		38EB8E1B224AF3AAF51C28B7 /* BassVoice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BassVoice.swift; sourceTree = "<group>"; };
 		3D02F63B723542C64FBA5CAF /* SplashView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplashView.swift; sourceTree = "<group>"; };
 		3DB40B4A997464FA14237CFB /* SynthVoice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SynthVoice.swift; sourceTree = "<group>"; };
 		3DE0A4BEBBBDDA25E2234B4A /* ImageLibrary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageLibrary.swift; sourceTree = "<group>"; };
@@ -84,6 +88,7 @@
 		49EAB0769DDFD54DF4C3180D /* loop_88_funky.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = loop_88_funky.wav; sourceTree = "<group>"; };
 		4F06BFE93A0D31A4F0EA3A4D /* MainView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainView.swift; sourceTree = "<group>"; };
 		5027397B0CDE225536514162 /* LICENSES-LOOPS.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "LICENSES-LOOPS.md"; sourceTree = "<group>"; };
+		5B0AF4662DE5803EE8B76C5E /* BassSequencer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BassSequencer.swift; sourceTree = "<group>"; };
 		5E43867020DFF20BB9FBBA63 /* LoopManifest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoopManifest.swift; sourceTree = "<group>"; };
 		61704CB6E366DD336A594101 /* loop_76_amber.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = loop_76_amber.wav; sourceTree = "<group>"; };
 		7BE1EBFA52EF4B1019010B0D /* loop_90_grit.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = loop_90_grit.wav; sourceTree = "<group>"; };
@@ -105,6 +110,7 @@
 		D21055F41EE2E114AD40E42B /* loop_85_hazy.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = loop_85_hazy.wav; sourceTree = "<group>"; };
 		D70842CAD0063FDBCE1CFD36 /* ArpeggioSequencer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArpeggioSequencer.swift; sourceTree = "<group>"; };
 		DE6218B657A6195E2D2774BA /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
+		E450C087094BF268C8B13A65 /* BasslinePattern.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BasslinePattern.swift; sourceTree = "<group>"; };
 		E59A6E5E775C47F05D85F34E /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		E94A99E1BEDC453633F67AFB /* VHSTimestamp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VHSTimestamp.swift; sourceTree = "<group>"; };
 		FA1EB060083888CB23AB2115 /* ClipRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipRenderer.swift; sourceTree = "<group>"; };
@@ -128,6 +134,9 @@
 			children = (
 				D70842CAD0063FDBCE1CFD36 /* ArpeggioSequencer.swift */,
 				A99DEDE49CE908578E16081A /* AudioEngineController.swift */,
+				E450C087094BF268C8B13A65 /* BasslinePattern.swift */,
+				5B0AF4662DE5803EE8B76C5E /* BassSequencer.swift */,
+				38EB8E1B224AF3AAF51C28B7 /* BassVoice.swift */,
 				C306B45D3A52C1C683288F17 /* DSPMath.swift */,
 				226F2045D6B6C873CE9CE85B /* LiminalDSPCore.swift */,
 				45FF0C75F9A539F79B61B5E3 /* LoopPlayer.swift */,
@@ -356,6 +365,9 @@
 				E42845A82080E65B38F2E7B2 /* AudioEngineController.swift in Sources */,
 				2B998A0E17C5796A72C3EFDD /* AutoRenderBootstrap.c in Sources */,
 				98CA3D3038A19E7437C15209 /* AutoRenderDebugHarness.swift in Sources */,
+				C388037C52080058DDF4E2FE /* BassSequencer.swift in Sources */,
+				D78B9609570B39FAB40D14DB /* BassVoice.swift in Sources */,
+				E5BFB2B98D05C13D57ADE564 /* BasslinePattern.swift in Sources */,
 				D82EC4EF3C49B98D4A82334F /* ClipRenderer.swift in Sources */,
 				B0A262DE925A3BD1E67338F7 /* Components.swift in Sources */,
 				965AB1B7601EC81EDEA7FF3D /* DSPMath.swift in Sources */,

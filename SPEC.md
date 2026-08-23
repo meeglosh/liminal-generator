@@ -225,6 +225,64 @@ Image library images are now 1:1 square (848×848, center-cropped from the origi
 upscaling). `ClipRenderer` output is 848×848 (see Video/share pipeline above). `VHSImageCard`'s aspect ratio
 constraint changes from `848/1264` to `1.0`.
 
+### Addendum 2 (real COLOR filter, waveform chips, arp range fix, bassline, 2026-08-23)
+Feedback from testing build 1.0 (2): COLOR's effect was too subtle to notice (it was a mild ±multiplier on
+an already-narrow hardcoded cutoff range) — this is now a REAL, dramatic, full-range filter control.
+
+- **COLOR redefined**: `color: Float` (0...1, same published property, same UI slider) now directly sets
+  the cutoff frequency of a genuine **24dB/octave (4th-order) lowpass filter** on the synth voice: `color=0`
+  → fully closed (cutoff ~60–80Hz, the tone is essentially just a muffled low rumble), `color=1` → fully open
+  (cutoff ~18–20kHz, effectively unfiltered/bright). Logarithmic mapping between those endpoints. The
+  existing per-note envelope-driven brightness contour still layers on top of (opens further from) this base
+  cutoff — don't remove the pluck articulation, just make the base cutoff dramatically audible across the
+  slider's range. Parameter must be smoothed (no zipper/clicks on drag).
+- **Waveform chips**: below the COLOR slider in the SYNTH card, a row of `LiminalChip`-style single-select
+  chips: SINE, TRIANGLE, SQUARE, SAW. Selecting one sets `AudioEngineController.waveform: LiminalWaveform`
+  (new enum, published, default `.triangle`) — the melody voice's oscillator shape (replacing the old
+  hardcoded triangle/sine blend). The two detuned oscillators per voice keep their chorus-y detune, just
+  both now render the selected waveform. Square/saw may use simple naive (non-band-limited) waveshaping —
+  the 24dB lowpass and existing age/wow-flutter processing will tame most aliasing harshness, acceptable for
+  this app's lo-fi aesthetic. Waveform selection is melody-only (does not affect the bassline voice or drums).
+- **Arpeggio range fix**: generated arp notes must NEVER deviate from the pattern's root by more than 24
+  semitones (2 octaves) in either direction — a hard invariant, verify it holds across many generated
+  patterns (this was previously loosely bounded and needs an explicit fix + regression check).
+- **New BASSLINE section**, positioned between the SYNTH (melody) card and the GLOBAL ENV card (card order
+  becomes: VHS image card → SYNTH → **BASSLINE** → GLOBAL ENV → DRUMS → RENDER & SHARE). Mirrors the DRUMS
+  card's shape: "ENABLE BASS" toggle, "GENERATE BASS" dice button, a COLOR slider (own independent 24dB
+  lowpass instance, DARK/BRIGHT endpoints, same log-mapping design as melody's COLOR) and a LEVEL slider
+  (-INF…+6dB, same curve as `drumLevel`). No SEQ/BPM readout row (not requested).
+  - Bassline is a simple, low-register, single-oscillator (or lightly detuned pair) voice — NOT the
+    selectable waveform (fixed to something warm/clean, e.g. sine or triangle, agent's call) — pitched
+    roughly 1–2 octaves below the melody's root.
+  - Bass notes are **scale-degree-based against the melody's CURRENT root+scale** (mostly root/fifth/octave,
+    occasional third for a "simple/melodic" walking feel) so it always harmonizes — never an independently
+    random key. Whenever `regenerateMelody()` picks a new key/scale, the bassline must be refreshed to match
+    (either regenerate a fresh pattern or re-resolve degrees against the new root/scale — implementer's
+    choice, but it must never sound like it's in the wrong key after a melody regenerate).
+  - Rhythm is deliberately **irregular** (unlike the melody's strict straight/even steps): rests, held/tied
+    notes, syncopated placement — "simple/melodic", not a run through the scale. `regenerateBass()` re-rolls
+    a new rhythmic/note pattern (still against the current key/scale).
+  - Bass timing rides the SAME shared tick clock as melody/drums (driven by `effectiveBPM`, which already
+    incorporates SPEED) — never an independent tempo, always in sync regardless of drums on/off or the
+    SPEED slider position.
+
+Pinned contract additions to `AudioEngineController`:
+```swift
+enum LiminalWaveform: String, CaseIterable { case sine, triangle, square, saw }
+
+@MainActor
+final class AudioEngineController: ObservableObject {
+    // ...existing properties unchanged (color's semantics change per above, property itself doesn't), PLUS:
+    @Published var waveform: LiminalWaveform        // default .triangle; melody-only
+    @Published var bassEnabled: Bool                // default false
+    @Published var bassColor: Float                 // 0...1, default ~0.5, own 24dB lowpass
+    @Published var bassLevel: Float                 // 0...1 (maps -inf...+6dB), default ~0.65
+    func regenerateBass()                           // re-rolls bass rhythm/notes against current key/scale
+}
+```
+`renderOffline` must seed the offline core with the live `waveform`, `bassEnabled`, `bassColor`, `bassLevel`,
+and current bass pattern, same as every other live parameter.
+
 ## Quality bar
 - `xcodebuild -scheme LiminalGenerator -destination 'iPhone 17 Pro simulator' build` must succeed with no
   warnings-as-errors issues; app runs, audio plays immediately on PLAY, no crackles (render callback does no

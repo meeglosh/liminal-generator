@@ -33,6 +33,7 @@ final class LiminalDSPCore: @unchecked Sendable {
     private let paramBox: SnapshotBox<ParamSnapshot>
     private let arpBox: SnapshotBox<ValueBox<ArpeggioPattern>>
     private let drumBox: SnapshotBox<ValueBox<LoopSwapPayload>>
+    private let bassBox: SnapshotBox<ValueBox<BasslinePattern>>
 
     // Control-thread-only shadow copies, used to build the next published
     // ParamSnapshot incrementally. Never touched by the render thread.
@@ -42,12 +43,18 @@ final class LiminalDSPCore: @unchecked Sendable {
     private var shadowDrumLevel: Float
     private var shadowSpeed: Float
     private var shadowColor: Float
+    private var shadowWaveform: LiminalWaveform
+    private var shadowBassEnabled: Bool
+    private var shadowBassColor: Float
+    private var shadowBassLevel: Float
 
     // MARK: Render-thread-only state
 
     private var rng: XorshiftRNG
     private let voiceBank: SynthVoiceBank
     private let arpSeq: ArpeggioSequencer
+    private let bassSeq: BassSequencer
+    private var bassVoice = BassVoice()
     private let loopPlayer: LoopPlayer
     private var wowL: WowFlutterProcessor
     private var wowR: WowFlutterProcessor
@@ -64,6 +71,7 @@ final class LiminalDSPCore: @unchecked Sendable {
     private var smSpace: SmoothedParam
     private var smAge: SmoothedParam
     private var smDrumGain: SmoothedParam
+    private var smBassGain: SmoothedParam
     /// Smoothed SPEED (0...1, not the multiplier itself -- `speedMultiplier`
     /// is applied where the smoothed value is read) so slider drags ramp
     /// over ~20ms instead of stepping the tick clock/loop rate abruptly.
@@ -75,9 +83,13 @@ final class LiminalDSPCore: @unchecked Sendable {
     /// like `releaseScale`/`ageLPCoeff` below) since it's applied at note
     /// trigger time, not continuously per sample -- see `SynthVoice.trigger`.
     private var smColor: SmoothedParam
+    /// Smoothed bassColor (0...1) -- same buffer-rate, trigger-time-only
+    /// consumption pattern as `smColor`, see `BassVoice.noteOn`.
+    private var smBassColor: SmoothedParam
 
     private var lastSeenArpRef: ValueBox<ArpeggioPattern>?
     private var lastSeenDrumRef: ValueBox<LoopSwapPayload>?
+    private var lastSeenBassRef: ValueBox<BasslinePattern>?
 
     private var elapsedSamples: Int64 = 0
     private var nextTickSample: Int64 = 0
@@ -105,16 +117,23 @@ final class LiminalDSPCore: @unchecked Sendable {
     ///     loop buffer matching `beat` (also used as the "seed" for a
     ///     freshly constructed offline-render core -- passing the SAME
     ///     `LoopBuffer` instance guarantees bit-identical drum audio).
-    ///   - space/age/drumsEnabled/drumLevel/speed/color: initial parameter values.
+    ///   - bassPattern: initial bassline pattern (see `BasslinePattern`).
+    ///   - space/age/drumsEnabled/drumLevel/speed/color/waveform/bassEnabled/
+    ///     bassColor/bassLevel: initial parameter values.
     init(pattern: ArpeggioPattern,
          beat: DrumPattern,
          loopBuffer: LoopBuffer,
+         bassPattern: BasslinePattern,
          space: Float,
          age: Float,
          drumsEnabled: Bool,
          drumLevel: Float,
          speed: Float,
          color: Float,
+         waveform: LiminalWaveform,
+         bassEnabled: Bool,
+         bassColor: Float,
+         bassLevel: Float,
          sampleRate: Double = 44_100) {
         self.sampleRate = sampleRate
 
@@ -124,19 +143,28 @@ final class LiminalDSPCore: @unchecked Sendable {
         shadowDrumLevel = drumLevel
         shadowSpeed = speed
         shadowColor = color
+        shadowWaveform = waveform
+        shadowBassEnabled = bassEnabled
+        shadowBassColor = bassColor
+        shadowBassLevel = bassLevel
 
         paramBox = SnapshotBox(ParamSnapshot(space: space, age: age, drumsEnabled: drumsEnabled, drumLevel: drumLevel,
-                                              speed: speed, color: color))
+                                              speed: speed, color: color, waveform: waveform,
+                                              bassEnabled: bassEnabled, bassColor: bassColor, bassLevel: bassLevel))
         let arpValueBox = ValueBox(pattern)
         let drumValueBox = ValueBox(LoopSwapPayload(pattern: beat, buffer: loopBuffer))
+        let bassValueBox = ValueBox(bassPattern)
         arpBox = SnapshotBox(arpValueBox)
         drumBox = SnapshotBox(drumValueBox)
+        bassBox = SnapshotBox(bassValueBox)
         lastSeenArpRef = arpValueBox
         lastSeenDrumRef = drumValueBox
+        lastSeenBassRef = bassValueBox
 
         rng = XorshiftRNG(seed: 0xC0FFEE_1234_5678)
         voiceBank = SynthVoiceBank(voiceCount: 10, sampleRate: sampleRate)
         arpSeq = ArpeggioSequencer(initialPattern: pattern)
+        bassSeq = BassSequencer(initialPattern: bassPattern)
         loopPlayer = LoopPlayer(initialPattern: beat, initialBuffer: loopBuffer)
         wowL = WowFlutterProcessor(sampleRate: sampleRate, phaseOffset: 0)
         wowR = WowFlutterProcessor(sampleRate: sampleRate, phaseOffset: 0.27)
@@ -146,10 +174,13 @@ final class LiminalDSPCore: @unchecked Sendable {
 
         smSpace = SmoothedParam(initial: space, timeConstant: 0.02, sampleRate: sampleRate)
         smAge = SmoothedParam(initial: age, timeConstant: 0.02, sampleRate: sampleRate)
-        smDrumGain = SmoothedParam(initial: drumsEnabled ? Self.drumGainLinear(drumLevel) : 0,
+        smDrumGain = SmoothedParam(initial: drumsEnabled ? levelToGainLinear(drumLevel) : 0,
+                                    timeConstant: 0.006, sampleRate: sampleRate)
+        smBassGain = SmoothedParam(initial: bassEnabled ? levelToGainLinear(bassLevel) : 0,
                                     timeConstant: 0.006, sampleRate: sampleRate)
         smSpeed = SmoothedParam(initial: speed, timeConstant: 0.02, sampleRate: sampleRate)
         smColor = SmoothedParam(initial: color, timeConstant: 0.02, sampleRate: sampleRate)
+        smBassColor = SmoothedParam(initial: bassColor, timeConstant: 0.02, sampleRate: sampleRate)
 
         activeTempoUsesLoop = drumsEnabled
         pendingDrumsEnabledForTempo = drumsEnabled
@@ -193,6 +224,29 @@ final class LiminalDSPCore: @unchecked Sendable {
         publishParams()
     }
 
+    /// Melody-only oscillator waveform. Never affects the bassline or drums.
+    func setWaveform(_ v: LiminalWaveform) {
+        shadowWaveform = v
+        publishParams()
+    }
+
+    func setBassEnabled(_ v: Bool) {
+        shadowBassEnabled = v
+        publishParams()
+    }
+
+    /// Bass-only filter tone bias (0...1, dark...bright) -- own independent
+    /// 24dB lowpass instance from the melody's COLOR, same log-mapping.
+    func setBassColor(_ v: Float) {
+        shadowBassColor = clamp(v, 0, 1)
+        publishParams()
+    }
+
+    func setBassLevel(_ v: Float) {
+        shadowBassLevel = clamp(v, 0, 1)
+        publishParams()
+    }
+
     /// Queue a new arpeggio pattern. Picked up by the render thread and
     /// applied at the next sequencer step boundary.
     func setPattern(_ pattern: ArpeggioPattern) {
@@ -206,6 +260,17 @@ final class LiminalDSPCore: @unchecked Sendable {
         drumBox.publish(ValueBox(LoopSwapPayload(pattern: pattern, buffer: buffer)))
     }
 
+    /// Queue a new bassline rhythm/note pattern. Picked up by the render
+    /// thread and applied at the next tick (see `BassSequencer`). Note
+    /// pitches are scale-degree ROLES resolved against whatever the CURRENT
+    /// `ArpeggioPattern`'s root+scale is at trigger time (see
+    /// `BasslineGenerator.resolveBassMIDI` and `doTick` below) -- so the
+    /// bassline is always in the current key with no separate "refresh"
+    /// step needed when the melody's key changes.
+    func setBassPattern(_ pattern: BasslinePattern) {
+        bassBox.publish(ValueBox(pattern))
+    }
+
     // MARK: Realtime render entry point
 
     /// Renders `frames` of interleaved stereo Float32 into `buffer`
@@ -217,10 +282,13 @@ final class LiminalDSPCore: @unchecked Sendable {
         let snapshot = paramBox.read()
         smSpace.setTarget(snapshot.space)
         smAge.setTarget(snapshot.age)
-        let drumGainTarget: Float = snapshot.drumsEnabled ? Self.drumGainLinear(snapshot.drumLevel) : 0
+        let drumGainTarget: Float = snapshot.drumsEnabled ? levelToGainLinear(snapshot.drumLevel) : 0
         smDrumGain.setTarget(drumGainTarget)
+        let bassGainTarget: Float = snapshot.bassEnabled ? levelToGainLinear(snapshot.bassLevel) : 0
+        smBassGain.setTarget(bassGainTarget)
         smSpeed.setTarget(snapshot.speed)
         smColor.setTarget(snapshot.color)
+        smBassColor.setTarget(snapshot.bassColor)
         pendingDrumsEnabledForTempo = snapshot.drumsEnabled
 
         let arpRef = arpBox.read()
@@ -233,15 +301,24 @@ final class LiminalDSPCore: @unchecked Sendable {
             lastSeenDrumRef = drumRef
             loopPlayer.queueSwap(drumRef.value)
         }
+        let bassRef = bassBox.read()
+        if bassRef !== lastSeenBassRef {
+            lastSeenBassRef = bassRef
+            bassSeq.queuePatternSwap(bassRef.value)
+        }
 
         // Buffer-rate derived values (recomputed once per callback --
         // imperceptibly coarse for "gentle" characteristics, avoids
         // per-sample transcendental calls).
         let releaseScale = 0.85 + 0.3 * smSpace.current
         let ageLPCoeff = AgeLowpass.coefficient(age: smAge.current, sampleRate: sampleRate)
-        // COLOR only ever applies at note-trigger time (see
-        // `SynthVoice.trigger`), so buffer-rate resolution is plenty.
-        let colorFactor = synthColorFactor(smColor.current)
+        // COLOR/bassColor/waveform only ever apply at note-trigger time (see
+        // `SynthVoice.trigger`/`BassVoice.noteOn`), so buffer-rate resolution
+        // is plenty -- also click-free, since a change only ever affects
+        // notes that haven't started yet.
+        let colorValue = smColor.current
+        let bassColorValue = smBassColor.current
+        let waveform = snapshot.waveform
 
         for i in 0..<frames {
             // SPEED needs genuinely sample-accurate smoothing: it drives
@@ -252,21 +329,28 @@ final class LiminalDSPCore: @unchecked Sendable {
             let speedMult = speedMultiplier(smSpeed.next())
 
             while elapsedSamples >= nextTickSample {
-                doTick(releaseScale: releaseScale, colorFactor: colorFactor, speedMult: speedMult)
+                doTick(releaseScale: releaseScale, colorValue: colorValue, bassColorValue: bassColorValue,
+                       waveform: waveform, speedMult: speedMult)
             }
             elapsedSamples += 1
 
             let age = smAge.next()
             let drumGain = smDrumGain.next()
+            let bassGain = smBassGain.next()
             _ = smSpace.next()
             _ = smColor.next()
+            _ = smBassColor.next()
 
             let (synthL, synthR) = voiceBank.nextSample()
             let loopRaw: Float = activeTempoUsesLoop ? loopPlayer.nextSample(rate: speedMult) : 0
             let drumMono = loopLowpass.process(loopRaw, coeff: loopLowpassCoeff) * drumGain
+            // Bass ticks on the SAME shared clock regardless of `bassEnabled`
+            // (see `BassSequencer`/`doTick`) -- only its gain is gated here,
+            // so re-enabling it never needs a resync.
+            let bassMono = bassVoice.nextSample(sampleRate: sampleRate) * bassGain
 
-            var left = synthL + drumMono
-            var right = synthR + drumMono
+            var left = synthL + drumMono + bassMono
+            var right = synthR + drumMono + bassMono
 
             left = wowL.process(left, depth: age)
             right = wowR.process(right, depth: age)
@@ -290,7 +374,8 @@ final class LiminalDSPCore: @unchecked Sendable {
 
     // MARK: Sequencer clock
 
-    private func doTick(releaseScale: Float, colorFactor: Float, speedMult: Float) {
+    private func doTick(releaseScale: Float, colorValue: Float, bassColorValue: Float,
+                         waveform: LiminalWaveform, speedMult: Float) {
         // Bar boundary: every 16 ticks (see `ticksPerBar`). Loop swaps and
         // the drums-enabled tempo switch are only ever applied here, so a
         // change mid-bar never yanks the shared tick clock or the loop's
@@ -316,8 +401,36 @@ final class LiminalDSPCore: @unchecked Sendable {
                               attackRange: 20...80,
                               releaseRange: 500...1500,
                               releaseScale: releaseScale,
-                              colorFactor: colorFactor,
+                              color: colorValue,
+                              waveform: waveform,
                               rng: &rng)
+        }
+
+        // Bass always advances on this SAME shared tick clock (never an
+        // independent tempo) -- see `BassSequencer`. Note pitches are
+        // resolved against `arpSeq.activePattern`'s CURRENT root+scale
+        // right here at trigger time, so the bassline is always in tune
+        // with whatever key the melody is currently in, even immediately
+        // after a `regenerateMelody()` key change (no caching of absolute
+        // bass pitches -- see `BasslinePattern.swift`).
+        if let bassStep = bassSeq.advanceTick() {
+            switch bassStep.kind {
+            case .rest:
+                bassVoice.noteOff(releaseMs: 220, sampleRate: sampleRate)
+            case .hold:
+                break // keep sustaining whatever's currently sounding
+            case .note(let role):
+                let key = arpSeq.activePattern
+                let midi = BasslineGenerator.resolveBassMIDI(role: role,
+                                                               rootMIDI: key.rootMIDI,
+                                                               intervals: key.scale.intervals,
+                                                               octaveShift: bassSeq.activePattern.octaveShift)
+                bassVoice.noteOn(midiNote: midi,
+                                  velocity: bassStep.velocity,
+                                  sampleRate: sampleRate,
+                                  color: bassColorValue,
+                                  rng: &rng)
+            }
         }
 
         globalTickIndex += 1
@@ -341,12 +454,8 @@ final class LiminalDSPCore: @unchecked Sendable {
     private func publishParams() {
         paramBox.publish(ParamSnapshot(space: shadowSpace, age: shadowAge,
                                         drumsEnabled: shadowDrumsEnabled, drumLevel: shadowDrumLevel,
-                                        speed: shadowSpeed, color: shadowColor))
-    }
-
-    private static func drumGainLinear(_ level: Float) -> Float {
-        guard level > 0.001 else { return 0 }
-        let db = lerp(-40, 6, clamp(level, 0, 1))
-        return dBToLinear(db)
+                                        speed: shadowSpeed, color: shadowColor, waveform: shadowWaveform,
+                                        bassEnabled: shadowBassEnabled, bassColor: shadowBassColor,
+                                        bassLevel: shadowBassLevel))
     }
 }
