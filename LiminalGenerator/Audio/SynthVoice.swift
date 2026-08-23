@@ -7,6 +7,11 @@
 //  envelope, slow attack / long release. All state is plain structs/arrays
 //  owned by `SynthVoiceBank` -- no allocation after `init`.
 //
+//  COLOR (synth-only, never applied to the drum loop bus) is layered on
+//  top of that envelope-driven brightness contour as a trigger-time bias
+//  on the open/dark cutoff endpoints -- see `synthColorFactor` (DSPMath.swift)
+//  and the comment in `SynthVoice.trigger`.
+//
 
 import Foundation
 
@@ -53,6 +58,7 @@ struct SynthVoice {
                            attackRange: ClosedRange<Float>,
                            releaseRange: ClosedRange<Float>,
                            releaseScale: Float,
+                           colorFactor: Float,
                            rng: inout XorshiftRNG) {
         let baseFreq = midiToFrequency(Float(midiNote))
         let detuneCents = rng.nextFloat(in: 4...11)
@@ -74,8 +80,18 @@ struct SynthVoice {
         releaseCoeff = pow(0.0001, 1.0 / Float(max(1, Int(releaseMs / 1000 * Float(sampleRate)))))
         stage = .attack
 
-        let brightHz = rng.nextFloat(in: 2200...3600)
-        let darkHz = rng.nextFloat(in: 500...900)
+        // COLOR is layered here, ADDITIVELY on top of the existing
+        // envelope-driven brightness contour: it biases the note's own
+        // open/dark cutoff endpoints (via `colorFactor`, see
+        // `synthColorFactor`), captured once at trigger time -- the
+        // envelope (attack->release, `filterCoeff = lerp(coeffClosed,
+        // coeffOpen, envLevel)` in `nextSample`) still sweeps between them
+        // exactly as before. Applying at trigger time (rather than
+        // continuously per-sample) is inherently click-free: it only ever
+        // affects notes that haven't started yet, never an
+        // already-sounding voice. Hard-clamped so even color=1 stays warm.
+        let brightHz = clamp(rng.nextFloat(in: 2200...3600) * colorFactor, 150, 7_000)
+        let darkHz = clamp(rng.nextFloat(in: 500...900) * colorFactor, 80, 4_000)
         coeffOpen = OnePoleLowpass.coefficient(cutoffHz: brightHz, sampleRate: sampleRate)
         coeffClosed = OnePoleLowpass.coefficient(cutoffHz: darkHz, sampleRate: sampleRate)
 
@@ -142,6 +158,7 @@ final class SynthVoiceBank {
                 attackRange: ClosedRange<Float>,
                 releaseRange: ClosedRange<Float>,
                 releaseScale: Float,
+                colorFactor: Float,
                 rng: inout XorshiftRNG) {
         var targetIndex = 0
         var quietestLevel: Float = .greatestFiniteMagnitude
@@ -166,6 +183,7 @@ final class SynthVoiceBank {
                                      attackRange: attackRange,
                                      releaseRange: releaseRange,
                                      releaseScale: releaseScale,
+                                     colorFactor: colorFactor,
                                      rng: &rng)
     }
 

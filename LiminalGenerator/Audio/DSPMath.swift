@@ -66,6 +66,35 @@ struct XorshiftRNG {
     pow(10.0, db / 20.0)
 }
 
+// MARK: - Tempo / SPEED
+
+/// Fixed base tempo (bpm) for the shared 16th-note tick clock when drums
+/// are disabled -- picked to sit at the rough center of the old randomized
+/// 68...96 bpm generation range (retired; tempo no longer comes from
+/// `ArpeggioPattern`). Single source of truth shared by `LiminalDSPCore`
+/// (tick-clock scheduling) and `AudioEngineController` (the `effectiveBPM`
+/// readout), so the two can never drift apart.
+let baseMelodyBPM: Double = 82
+
+/// SPEED (0...1) -> tempo/playback-rate multiplier, per SPEC.md: 0.70x at
+/// speed=0, exactly 1.0x at the default speed=0.5, 1.30x at speed=1 -- a
+/// tape-deck-style linear ramp.
+@inline(__always) func speedMultiplier(_ speed: Float) -> Float {
+    0.70 + clamp(speed, 0, 1) * 0.60
+}
+
+// MARK: - COLOR
+
+/// COLOR (0...1) -> multiplier applied to the synth voice's filter
+/// open/dark cutoff frequencies at note-trigger time (see `SynthVoice.trigger`):
+/// 0.6x at color=0 (duller, warmer), 1.0x at the ~0.5 default (matches the
+/// pre-COLOR baseline tone exactly), 1.4x at color=1 (more open/present).
+/// Deliberately modest range -- plus a hard Hz clamp downstream -- so the
+/// pad-pluck stays warm and never harsh even at the bright extreme.
+@inline(__always) func synthColorFactor(_ color: Float) -> Float {
+    0.6 + clamp(color, 0, 1) * 0.8
+}
+
 /// Cheap triangle+sine blend oscillator shape, evaluated from a 0..<1 phase.
 @inline(__always) func triSine(phase: Float) -> Float {
     let sine = sin(2 * Float.pi * phase)

@@ -91,11 +91,17 @@ enum LoopLoader {
 /// tick-grid bar boundary via `applyPendingSwapAtBarBoundary()`, which also
 /// resets the cursor to 0 so the new loop's downbeat lands exactly on the
 /// bar.
+/// SPEED implementation note: playback advances a fractional (`Double`)
+/// sample cursor by `rate` (== `speedMultiplier(speed)`, see DSPMath.swift)
+/// per output sample rather than a fixed 1-sample step, with linear
+/// interpolation between the two neighboring samples. This is a deliberate
+/// tape-varispeed effect -- the loop's pitch shifts with playback rate,
+/// same as a tape deck's speed knob -- per SPEC.md.
 final class LoopPlayer {
     private(set) var activePattern: DrumPattern
     private(set) var activeBuffer: LoopBuffer
     private var pendingSwap: LoopSwapPayload?
-    private var cursor: Int = 0
+    private var cursor: Double = 0
 
     init(initialPattern: DrumPattern, initialBuffer: LoopBuffer) {
         activePattern = initialPattern
@@ -127,13 +133,25 @@ final class LoopPlayer {
         cursor = 0
     }
 
+    /// - Parameter rate: playback-rate multiplier (`speedMultiplier(speed)`).
+    ///   1.0 = normal speed (the pre-SPEED behavior). Advances the
+    ///   fractional cursor by `rate` samples and linearly interpolates
+    ///   between the two neighboring samples -- with `rate` always in
+    ///   0.70...1.30 (see `speedMultiplier`), the cursor never advances
+    ///   more than ~1.3 samples per call, so a 2-tap interpolation is
+    ///   always sufficient.
     @inline(__always)
-    func nextSample() -> Float {
+    func nextSample(rate: Float) -> Float {
         let samples = activeBuffer.samples
-        guard !samples.isEmpty else { return 0 }
-        let s = samples[cursor]
-        cursor += 1
-        if cursor >= samples.count { cursor = 0 }
+        let n = samples.count
+        guard n > 0 else { return 0 }
+        let i0 = Int(cursor)
+        let i1 = (i0 + 1) % n
+        let frac = Float(cursor - Double(i0))
+        let s = samples[i0] + (samples[i1] - samples[i0]) * frac
+
+        cursor += Double(rate)
+        if cursor >= Double(n) { cursor -= Double(n) }
         return s
     }
 }

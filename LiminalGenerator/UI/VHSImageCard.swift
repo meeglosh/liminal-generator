@@ -127,51 +127,60 @@ struct VHSImageCard: View {
     private var currentImage: LiminalImage { ImageLibrary[index] }
 
     var body: some View {
-        GeometryReader { geo in
-            let width = geo.size.width
+        // `.aspectRatio` is applied to a flexible `Color.clear` rather than
+        // directly to the `GeometryReader` below: `GeometryReader` reports a
+        // degenerate ideal size (unlike `Color`, which reports one matching
+        // whatever size it's proposed), which throws off `.aspectRatio`'s fit
+        // math when composed directly on top of it -- a well-known SwiftUI
+        // gotcha. Overlaying the real content keeps the geometry read exact.
+        Color.clear
+            .aspectRatio(1.0, contentMode: .fit)
+            .overlay(
+                GeometryReader { geo in
+                    let width = geo.size.width
 
-            ZStack {
-                VHSFilteredImage(assetName: ImageLibrary[index - 1].assetName, isActive: isDragging, isPlaying: isPlaying)
-                    .offset(x: -width + dragOffset)
-                VHSFilteredImage(assetName: ImageLibrary[index].assetName, isActive: true, isPlaying: isPlaying)
-                    .offset(x: dragOffset)
-                VHSFilteredImage(assetName: ImageLibrary[index + 1].assetName, isActive: isDragging, isPlaying: isPlaying)
-                    .offset(x: width + dragOffset)
+                    ZStack {
+                        VHSFilteredImage(assetName: ImageLibrary[index - 1].assetName, isActive: isDragging, isPlaying: isPlaying)
+                            .offset(x: -width + dragOffset)
+                        VHSFilteredImage(assetName: ImageLibrary[index].assetName, isActive: true, isPlaying: isPlaying)
+                            .offset(x: dragOffset)
+                        VHSFilteredImage(assetName: ImageLibrary[index + 1].assetName, isActive: isDragging, isPlaying: isPlaying)
+                            .offset(x: width + dragOffset)
 
-                VHSOSDOverlay(timestamp: timestamp, isPlaying: isPlaying, onTogglePlay: onTogglePlay)
-            }
-            .clipped()
-            .contentShape(Rectangle())
-            .gesture(
-                DragGesture(minimumDistance: 8)
-                    .onChanged { value in
-                        isDragging = true
-                        dragOffset = value.translation.width
+                        VHSOSDOverlay(timestamp: timestamp, isPlaying: isPlaying, onTogglePlay: onTogglePlay)
                     }
-                    .onEnded { value in
-                        let threshold = width * 0.22
-                        var didSwipe = false
-                        if value.translation.width < -threshold {
-                            index += 1
-                            didSwipe = true
-                        } else if value.translation.width > threshold {
-                            index -= 1
-                            didSwipe = true
-                        }
-                        withAnimation(.easeOut(duration: 0.22)) {
-                            dragOffset = 0
-                        }
-                        isDragging = false
-                        if didSwipe {
-                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                            timestamp = .random()
-                        }
-                    }
+                    .clipped()
+                    .contentShape(Rectangle())
+                    .gesture(
+                        DragGesture(minimumDistance: 8)
+                            .onChanged { value in
+                                isDragging = true
+                                dragOffset = value.translation.width
+                            }
+                            .onEnded { value in
+                                let threshold = width * 0.22
+                                var didSwipe = false
+                                if value.translation.width < -threshold {
+                                    index += 1
+                                    didSwipe = true
+                                } else if value.translation.width > threshold {
+                                    index -= 1
+                                    didSwipe = true
+                                }
+                                withAnimation(.easeOut(duration: 0.22)) {
+                                    dragOffset = 0
+                                }
+                                isDragging = false
+                                if didSwipe {
+                                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                    timestamp = .random()
+                                }
+                            }
+                    )
+                }
             )
-        }
-        .aspectRatio(848.0 / 1264.0, contentMode: .fit)
-        .background(Color.liminalSurfaceContainerLow)
-        .overlay(Rectangle().stroke(Color.liminalOutlineVariant, lineWidth: 1))
-        .clipped()
+            .background(Color.liminalSurfaceContainerLow)
+            .overlay(Rectangle().stroke(Color.liminalOutlineVariant, lineWidth: 1))
+            .clipped()
     }
 }

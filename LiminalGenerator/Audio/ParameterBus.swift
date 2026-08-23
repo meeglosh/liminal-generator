@@ -28,15 +28,20 @@ final class ParamSnapshot: @unchecked Sendable {
     let age: Float
     let drumsEnabled: Bool
     let drumLevel: Float
+    let speed: Float
+    let color: Float
 
-    init(space: Float, age: Float, drumsEnabled: Bool, drumLevel: Float) {
+    init(space: Float, age: Float, drumsEnabled: Bool, drumLevel: Float, speed: Float, color: Float) {
         self.space = space
         self.age = age
         self.drumsEnabled = drumsEnabled
         self.drumLevel = drumLevel
+        self.speed = speed
+        self.color = color
     }
 
-    static let initial = ParamSnapshot(space: 0.55, age: 0.4, drumsEnabled: false, drumLevel: 0.65)
+    static let initial = ParamSnapshot(space: 0.55, age: 0.4, drumsEnabled: false, drumLevel: 0.65,
+                                        speed: 0.5, color: 0.5)
 }
 
 /// Wraps a value type (e.g. `ArpeggioPattern`, `DrumPattern`) in a class so

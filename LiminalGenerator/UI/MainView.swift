@@ -136,17 +136,26 @@ struct MainView: View {
 
                 Spacer()
 
-                // Effective bpm: while drums are on, the master step clock
-                // (and therefore the arp) is tempo-synced to the active
-                // loop's bpm -- see LiminalDSPCore's bar-boundary tempo
-                // switch. Show that, not the arp pattern's own (unused
-                // while drums are on) bpm.
-                Text("BPM: \(engine.drumsEnabled ? engine.currentBeat.bpm : engine.currentPattern.bpm)")
+                // effectiveBPM is the engine's single source of truth for
+                // displayed tempo: round(baseTempoSource * speedMultiplier),
+                // where baseTempoSource is the active loop's bpm while
+                // drums are enabled, else the fixed base melody bpm. See
+                // SPEC.md's "Musical style" / pinned contract addendum.
+                Text("BPM: \(engine.effectiveBPM)")
                     .foregroundColor(.liminalOnSurfaceVariant)
                     .accessibilityIdentifier("bpmReadout")
             }
             .font(.spaceMono(size: 11))
             .tracking(0.5)
+
+            LiminalSliderRow(
+                label: "COLOR",
+                subLabel: "TONE",
+                leftEndpoint: "DARK",
+                rightEndpoint: "BRIGHT",
+                value: $engine.color,
+                sliderAccessibilityIdentifier: "colorSlider"
+            )
         }
     }
 
@@ -169,6 +178,14 @@ struct MainView: View {
                 rightEndpoint: "10",
                 value: $engine.age,
                 sliderAccessibilityIdentifier: "ageSlider"
+            )
+            LiminalSliderRow(
+                label: "SPEED",
+                subLabel: "TEMPO",
+                leftEndpoint: "0",
+                rightEndpoint: "10",
+                value: $engine.speed,
+                sliderAccessibilityIdentifier: "speedSlider"
             )
         }
     }

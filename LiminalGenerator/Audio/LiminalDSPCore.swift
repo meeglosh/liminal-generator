@@ -40,6 +40,8 @@ final class LiminalDSPCore: @unchecked Sendable {
     private var shadowAge: Float
     private var shadowDrumsEnabled: Bool
     private var shadowDrumLevel: Float
+    private var shadowSpeed: Float
+    private var shadowColor: Float
 
     // MARK: Render-thread-only state
 
@@ -62,6 +64,17 @@ final class LiminalDSPCore: @unchecked Sendable {
     private var smSpace: SmoothedParam
     private var smAge: SmoothedParam
     private var smDrumGain: SmoothedParam
+    /// Smoothed SPEED (0...1, not the multiplier itself -- `speedMultiplier`
+    /// is applied where the smoothed value is read) so slider drags ramp
+    /// over ~20ms instead of stepping the tick clock/loop rate abruptly.
+    /// Advanced every sample (unlike `smSpace`/`smAge`'s buffer-rate reads)
+    /// because both the tick-clock scheduling and the loop's per-sample
+    /// varispeed cursor need genuinely sample-accurate smoothing.
+    private var smSpeed: SmoothedParam
+    /// Smoothed COLOR (0...1). Only read once per callback (buffer-rate,
+    /// like `releaseScale`/`ageLPCoeff` below) since it's applied at note
+    /// trigger time, not continuously per sample -- see `SynthVoice.trigger`.
+    private var smColor: SmoothedParam
 
     private var lastSeenArpRef: ValueBox<ArpeggioPattern>?
     private var lastSeenDrumRef: ValueBox<LoopSwapPayload>?
@@ -71,13 +84,18 @@ final class LiminalDSPCore: @unchecked Sendable {
     private var globalTickIndex: Int = 0
 
     // Tempo-sync state (render-thread-only). The shared 16th-note tick grid
-    // normally runs at the arp pattern's own bpm; while drums are enabled it
-    // instead runs at the active loop's bpm. To keep loop-start and
-    // arpeggio-pattern-cycle boundaries phase-aligned, the switch (and any
-    // queued loop swap) is only ever applied at a "bar" boundary -- every 16
-    // ticks, which is exactly one full cycle of an 8- or 16-step arp pattern
-    // (see `ArpeggioSequencer.ticksPerStep`) and matches the loop files'
-    // own 4-bar structure once tempo-locked.
+    // normally runs at the fixed `baseMelodyBPM` constant; while drums are
+    // enabled it instead runs at the active loop's bpm. Either way the
+    // result is further scaled by SPEED's `speedMultiplier` (0.70x...1.30x,
+    // smoothed) -- see `scheduleNextTick`. To keep loop-start and
+    // arpeggio-pattern-cycle boundaries phase-aligned, the loop-vs-fixed-bpm
+    // switch (and any queued loop swap) is only ever applied at a "bar"
+    // boundary -- every 16 ticks, which is exactly one full cycle of the
+    // fixed 16-step arp pattern (see `ArpeggioSequencer.ticksPerStep`,
+    // `PatternGenerator.stepCount`) and matches the loop files' own 4-bar
+    // structure once tempo-locked. SPEED changes are NOT gated to bar
+    // boundaries -- they're smoothed instead (uniform time-scaling, not a
+    // content swap, so no phase-alignment concern).
     private static let ticksPerBar = 16
     private var activeTempoUsesLoop: Bool
     private var pendingDrumsEnabledForTempo: Bool
@@ -87,7 +105,7 @@ final class LiminalDSPCore: @unchecked Sendable {
     ///     loop buffer matching `beat` (also used as the "seed" for a
     ///     freshly constructed offline-render core -- passing the SAME
     ///     `LoopBuffer` instance guarantees bit-identical drum audio).
-    ///   - space/age/drumsEnabled/drumLevel: initial parameter values.
+    ///   - space/age/drumsEnabled/drumLevel/speed/color: initial parameter values.
     init(pattern: ArpeggioPattern,
          beat: DrumPattern,
          loopBuffer: LoopBuffer,
@@ -95,6 +113,8 @@ final class LiminalDSPCore: @unchecked Sendable {
          age: Float,
          drumsEnabled: Bool,
          drumLevel: Float,
+         speed: Float,
+         color: Float,
          sampleRate: Double = 44_100) {
         self.sampleRate = sampleRate
 
@@ -102,8 +122,11 @@ final class LiminalDSPCore: @unchecked Sendable {
         shadowAge = age
         shadowDrumsEnabled = drumsEnabled
         shadowDrumLevel = drumLevel
+        shadowSpeed = speed
+        shadowColor = color
 
-        paramBox = SnapshotBox(ParamSnapshot(space: space, age: age, drumsEnabled: drumsEnabled, drumLevel: drumLevel))
+        paramBox = SnapshotBox(ParamSnapshot(space: space, age: age, drumsEnabled: drumsEnabled, drumLevel: drumLevel,
+                                              speed: speed, color: color))
         let arpValueBox = ValueBox(pattern)
         let drumValueBox = ValueBox(LoopSwapPayload(pattern: beat, buffer: loopBuffer))
         arpBox = SnapshotBox(arpValueBox)
@@ -125,6 +148,8 @@ final class LiminalDSPCore: @unchecked Sendable {
         smAge = SmoothedParam(initial: age, timeConstant: 0.02, sampleRate: sampleRate)
         smDrumGain = SmoothedParam(initial: drumsEnabled ? Self.drumGainLinear(drumLevel) : 0,
                                     timeConstant: 0.006, sampleRate: sampleRate)
+        smSpeed = SmoothedParam(initial: speed, timeConstant: 0.02, sampleRate: sampleRate)
+        smColor = SmoothedParam(initial: color, timeConstant: 0.02, sampleRate: sampleRate)
 
         activeTempoUsesLoop = drumsEnabled
         pendingDrumsEnabledForTempo = drumsEnabled
@@ -149,6 +174,22 @@ final class LiminalDSPCore: @unchecked Sendable {
 
     func setDrumLevel(_ v: Float) {
         shadowDrumLevel = clamp(v, 0, 1)
+        publishParams()
+    }
+
+    /// Tape-style playback-rate control (0...1, multiplier 0.70x...1.30x
+    /// via `speedMultiplier` in DSPMath.swift). Scales the shared tick
+    /// clock's step duration and the drum loop's per-sample playback rate
+    /// together; synth oscillator pitches are unaffected -- see `render`.
+    func setSpeed(_ v: Float) {
+        shadowSpeed = clamp(v, 0, 1)
+        publishParams()
+    }
+
+    /// Synth-only filter tone bias (0...1, dark...bright). Never applied to
+    /// the drum loop bus -- see `SynthVoice.trigger`.
+    func setColor(_ v: Float) {
+        shadowColor = clamp(v, 0, 1)
         publishParams()
     }
 
@@ -178,6 +219,8 @@ final class LiminalDSPCore: @unchecked Sendable {
         smAge.setTarget(snapshot.age)
         let drumGainTarget: Float = snapshot.drumsEnabled ? Self.drumGainLinear(snapshot.drumLevel) : 0
         smDrumGain.setTarget(drumGainTarget)
+        smSpeed.setTarget(snapshot.speed)
+        smColor.setTarget(snapshot.color)
         pendingDrumsEnabledForTempo = snapshot.drumsEnabled
 
         let arpRef = arpBox.read()
@@ -196,19 +239,30 @@ final class LiminalDSPCore: @unchecked Sendable {
         // per-sample transcendental calls).
         let releaseScale = 0.85 + 0.3 * smSpace.current
         let ageLPCoeff = AgeLowpass.coefficient(age: smAge.current, sampleRate: sampleRate)
+        // COLOR only ever applies at note-trigger time (see
+        // `SynthVoice.trigger`), so buffer-rate resolution is plenty.
+        let colorFactor = synthColorFactor(smColor.current)
 
         for i in 0..<frames {
+            // SPEED needs genuinely sample-accurate smoothing: it drives
+            // both the tick-clock step duration (below) and the drum
+            // loop's per-sample varispeed cursor, so it's advanced every
+            // sample rather than read once per callback like space/age's
+            // buffer-rate derivations above.
+            let speedMult = speedMultiplier(smSpeed.next())
+
             while elapsedSamples >= nextTickSample {
-                doTick(releaseScale: releaseScale)
+                doTick(releaseScale: releaseScale, colorFactor: colorFactor, speedMult: speedMult)
             }
             elapsedSamples += 1
 
             let age = smAge.next()
             let drumGain = smDrumGain.next()
             _ = smSpace.next()
+            _ = smColor.next()
 
             let (synthL, synthR) = voiceBank.nextSample()
-            let loopRaw: Float = activeTempoUsesLoop ? loopPlayer.nextSample() : 0
+            let loopRaw: Float = activeTempoUsesLoop ? loopPlayer.nextSample(rate: speedMult) : 0
             let drumMono = loopLowpass.process(loopRaw, coeff: loopLowpassCoeff) * drumGain
 
             var left = synthL + drumMono
@@ -236,7 +290,7 @@ final class LiminalDSPCore: @unchecked Sendable {
 
     // MARK: Sequencer clock
 
-    private func doTick(releaseScale: Float) {
+    private func doTick(releaseScale: Float, colorFactor: Float, speedMult: Float) {
         // Bar boundary: every 16 ticks (see `ticksPerBar`). Loop swaps and
         // the drums-enabled tempo switch are only ever applied here, so a
         // change mid-bar never yanks the shared tick clock or the loop's
@@ -255,32 +309,39 @@ final class LiminalDSPCore: @unchecked Sendable {
         }
 
         if let arpStep = arpSeq.advanceTick(globalTickIndex: globalTickIndex) {
-            if let note = arpStep.midiNote, !arpStep.hold {
-                voiceBank.noteOn(midiNote: note,
-                                  velocity: arpStep.velocity,
-                                  attackRange: 20...80,
-                                  releaseRange: 500...1500,
-                                  releaseScale: releaseScale,
-                                  rng: &rng)
-            }
+            // No rests/holds anymore -- every step is its own note-on
+            // (see PatternGenerator.swift / the SPEC.md addendum).
+            voiceBank.noteOn(midiNote: arpStep.midiNote,
+                              velocity: arpStep.velocity,
+                              attackRange: 20...80,
+                              releaseRange: 500...1500,
+                              releaseScale: releaseScale,
+                              colorFactor: colorFactor,
+                              rng: &rng)
         }
 
         globalTickIndex += 1
-        scheduleNextTick()
+        scheduleNextTick(speedMult: speedMult)
     }
 
-    /// Effective tempo of the shared 16th-note tick clock: the active
-    /// loop's bpm while drums are enabled (tempo-synced to the loop, per the
-    /// bar-boundary rule above), otherwise the arp pattern's own bpm.
-    private func scheduleNextTick() {
-        let bpm = Double(max(1, activeTempoUsesLoop ? loopPlayer.bpm : arpSeq.activePattern.bpm))
-        let samplesPerTick = sampleRate * 60.0 / (bpm * 4.0)
+    /// Effective tempo of the shared 16th-note tick clock:
+    /// `baseTempoSource * speedMultiplier`, where `baseTempoSource` is the
+    /// active loop's bpm while drums are enabled (tempo-synced to the loop,
+    /// per the bar-boundary rule above), otherwise the fixed `baseMelodyBPM`
+    /// constant (tempo is decoupled from the arp pattern itself -- see
+    /// SPEC.md addendum). `speedMult` (== `speedMultiplier(speed)`, already
+    /// smoothed by the caller) scales the step duration by its inverse:
+    /// a faster multiplier means shorter steps, i.e. faster tempo.
+    private func scheduleNextTick(speedMult: Float) {
+        let bpm = activeTempoUsesLoop ? Double(max(1, loopPlayer.bpm)) : baseMelodyBPM
+        let samplesPerTick = (sampleRate * 60.0 / (bpm * 4.0)) / Double(speedMult)
         nextTickSample = elapsedSamples + Int64(max(1, samplesPerTick.rounded()))
     }
 
     private func publishParams() {
         paramBox.publish(ParamSnapshot(space: shadowSpace, age: shadowAge,
-                                        drumsEnabled: shadowDrumsEnabled, drumLevel: shadowDrumLevel))
+                                        drumsEnabled: shadowDrumsEnabled, drumLevel: shadowDrumLevel,
+                                        speed: shadowSpeed, color: shadowColor))
     }
 
     private static func drumGainLinear(_ level: Float) -> Float {

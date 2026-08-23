@@ -2,7 +2,7 @@
 //  ClipRenderer.swift
 //  LiminalGenerator
 //
-//  Builds the 120s portrait shareable MP4: 848x1264 @30fps H.264 video +
+//  Builds the 120s square shareable MP4: 848x848 @30fps H.264 video +
 //  AAC audio, muxed via AVAssetWriter. Audio comes from
 //  `AudioEngineController.renderOffline` (pinned contract); video is the
 //  still library image run through a Core Image pipeline that visually
@@ -77,7 +77,7 @@ enum ClipRenderer {
         var fadeIn: TimeInterval
         var fadeOut: TimeInterval
 
-        init(width: Int = 848, height: Int = 1264, fps: Int32 = 30,
+        init(width: Int = 848, height: Int = 848, fps: Int32 = 30,
              duration: TimeInterval = 120, fadeIn: TimeInterval = 3, fadeOut: TimeInterval = 5) {
             self.width = width
             self.height = height

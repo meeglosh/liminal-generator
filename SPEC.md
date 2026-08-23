@@ -28,14 +28,19 @@ over swipeable VHS-filtered images of empty spaces, and renders shareable 2-minu
 2. **Main** (single scrollable card stack):
    - Header: dithered glyph + "LIMINAL GENERATOR", settings gear (gear can be non-functional placeholder or
      minimal about sheet).
-   - **VHS image card**: shows current library image with live VHS filter (see below). Swipe left/right pages
-     through the 24-image library (wraps around, random start index). PLAY ▶ / PAUSE toggle overlaid bottom-left.
-     OSD overlay: random retro timestamp (e.g. "OCT 26 1998" + time, random per image swipe, late-80s–90s dates),
-     blinking red ● REC while playing, "SP" top-right. OSD uses a VCR-style rendering (Space Mono, slight glow).
+   - **VHS image card**: shows current library image (1:1 square, all 23 bundled images cropped square) with
+     live VHS filter (see below). Swipe left/right pages through the library (wraps around, random start
+     index). PLAY ▶ / PAUSE toggle overlaid bottom-left. OSD overlay: random retro timestamp (e.g. "OCT 26 1998"
+     + time, random per image swipe, late-80s–90s dates), blinking red ● REC while playing, "SP" top-right.
+     OSD uses a VCR-style rendering (Space Mono, slight glow).
    - **SYNTH card** ("SYNTH" tape-spine header): dice button "GENERATE MELODY" → new random arpeggio.
-     Readout row: `SEQ: A-C-E-G` (note names of the pattern) and `BPM: 82`.
-   - **GLOBAL ENV card**: SPACE slider (label right: REV_DECAY, scale 0–10) and AGE slider (WOW_FLUTTER, 0–10).
-     Both affect the entire mix (synth + drums).
+     Readout row: `SEQ: A-C-E-G` (note names of the pattern) and `BPM: <effectiveBPM>` (the actual playback
+     tempo — loop bpm or base melody bpm, times the SPEED multiplier; see "Musical style"). Below that, a
+     COLOR slider (endpoints "DARK"/"BRIGHT") controlling the synth voice's tone/timbre only (not drums).
+   - **GLOBAL ENV card**: SPACE slider (label right: REV_DECAY, scale 0–10), AGE slider (WOW_FLUTTER, 0–10),
+     and SPEED slider (label right: TEMPO, scale 0–10) — a tape-style playback-rate control. All three affect
+     the entire mix (synth + drums together, including the drum loop's playback rate/pitch, like a tape deck's
+     speed control).
    - **DRUMS card**: "ENABLE LOFI BEATS" toggle; when on, reveals LEVEL slider (-INF…+6dB), dice button
      "GENERATE BEAT", and a readout row (`LOOP: <displayName>` / `BPM: <loop bpm>`) below it.
    - **RENDER & SHARE** full-width red bar button at bottom.
@@ -54,15 +59,37 @@ All DSP is plain-Swift, sample-based, shared verbatim between realtime and offli
 - `AudioEngineController: ObservableObject` — wraps AVAudioEngine: `AVAudioSourceNode(LiminalDSPCore)` →
   `AVAudioUnitReverb` → mainMixer. Published: `isPlaying`, `space: Float` (0–1 → reverb wetDry 0–100 and
   slight decay character), `age: Float` (0–1 → wow/flutter depth+rate, tape hiss level, gentle lowpass),
+  `speed: Float` (0–1, default 0.5 → tempo/playback-rate multiplier 0.70x…1.30x, 0.5 = 1.0x/normal — see
+  "Musical style"), `color: Float` (0–1, default ~0.5 → synth-only filter tone, dark…bright — see below),
   `drumsEnabled`, `drumLevel: Float` (0–1 mapped -inf…+6dB), `currentPattern: ArpeggioPattern`,
-  `currentBeat: DrumPattern`. Methods: `start()`, `stop()`, `regenerateMelody()`, `regenerateBeat()`.
-  Configure AVAudioSession `.playback`. Handle interruptions (pause on interrupt).
-- **Musical style** ("liminal" per reference): slow, hazy, melancholic. `PatternGenerator`:
-  - Random key; scales: natural minor, dorian, or major-7-flavored pentatonic. BPM 68–96.
-  - Arpeggio: 8 or 16 step patterns over 1–2 octaves, mostly chord tones (i–VI–III–VII style progressions
-    optionally implied), occasional rests and held notes; velocity variation.
+  `currentBeat: DrumPattern`, `effectiveBPM: Int` (read-only, computed: `round(baseTempoSource * speedMultiplier)`
+  where `baseTempoSource` is the active loop's bpm when `drumsEnabled`, else a fixed `baseMelodyBPM` constant
+  — this is what the SYNTH card's BPM readout displays). Methods: `start()`, `stop()`, `regenerateMelody()`,
+  `regenerateBeat()`. Configure AVAudioSession `.playback`. Handle interruptions (pause on interrupt).
+- **Musical style** ("liminal" per reference): slow, hazy, melancholic, always straight/even rhythm (no
+  swing, no rests, no held notes — every step plays a note). `PatternGenerator`:
+  - **Randomized by `regenerateMelody()` — ONLY these three:** root key (0–11), scale, and pattern shape.
+    Nothing else is re-rolled per regenerate (step count, octave span, and the fixed base tempo are program
+    constants; per-note velocity may still carry small humanization jitter, which is not "randomizing a
+    parameter", just accenting).
+  - **Scale** (weighted): 90% picked uniformly from {minor pentatonic (0,3,5,7,10), dorian (0,2,3,5,7,9,10),
+    mixolydian (0,2,4,5,7,9,10), lydian (0,2,4,6,7,9,11)}; 10% major pentatonic (0,2,4,7,9) as an occasional
+    sprinkle. (Natural-minor/major-7-pentatonic from the old generator are retired.)
+  - **Pattern shape** (exactly one of three, chosen at random each regenerate): `up` (ascend through the
+    scale across the fixed octave span), `down` (descend), or `up-down` (ascend to the top then back down,
+    classic zigzag arpeggio — no repeated note at the turnaround). Straight, even step timing throughout —
+    no rests, no held/tied notes, no swing.
+  - Tempo is **decoupled from pattern generation** — see the SPEED control above; `ArpeggioPattern` no longer
+    carries a randomized bpm used for playback (the tick clock's rate comes from `effectiveBPM`, not from the
+    pattern).
   - Synth voice: 2 detuned soft oscillators (triangle/sine mix) + gentle lowpass, slow attack (20–80ms),
-    long release (0.5–1.5s), subtle chorus-y detune. Warm, pad-like pluck — never harsh.
+    long release (0.5–1.5s), subtle chorus-y detune. Warm, pad-like pluck — never harsh. **COLOR** (0–1)
+    shifts the voice's filter brightness dark→bright (layered on top of, not replacing, the existing
+    envelope-driven brightness contour); affects only the synth, never the drum loop.
+  - **SPEED** (0–1, multiplier 0.70x–1.30x): a global tape-style playback-rate control, applied like a
+    turntable/tape-deck speed knob — it scales both the tick clock (arp + loop timing) *and* the drum loop's
+    sample playback rate together, so tempo and the loop's pitch shift together (authentic tape-speed
+    character; the synth's own note pitches are NOT altered by SPEED, only their timing/tempo).
   - `DrumPattern` is loop-selection metadata (`loopIndex`, `displayName`, `bpm`), not a synthesized
     pattern: drums are **playback of one of 10 bundled CC0 lo-fi hip-hop loops**
     (`Resources/Loops/*.wav`, mono 44.1kHz s16, bar-exact 4 bars each, manifest in `LoopManifest.swift`)
@@ -76,26 +103,26 @@ All DSP is plain-Swift, sample-based, shared verbatim between realtime and offli
     exactly like before — SPACE/AGE keep affecting drums the same way. A light fixed ~8.5kHz lowpass sits
     on the loop bus for gentle lo-fi consistency; no bit-reduction or other heavy processing (the loops
     are already lo-fi).
-  - **Tempo-sync rule**: the shared 16th-note tick clock (drives both the arp and the loop's start/swap
-    timing) normally runs at the arp pattern's own bpm. While drums are enabled, it instead runs at the
-    active loop's bpm — so the arpeggio's tempo follows the loop. Enabling/disabling drums, and any loop
-    swap (`regenerateBeat()` or a fresh loop picked by `renderOffline`'s seed), is applied only at the
-    next **bar boundary** (every 16 ticks — a full cycle of an 8- or 16-step arp pattern, and one of the
-    loop's own 4 bars once tempo-locked): the loop's sample cursor resets to 0 there so its downbeat lands
-    exactly on the bar, keeping the arp's bar phase and the loop start phase-aligned. When drums are
-    disabled, the arpeggio reverts to its own pattern bpm. `regenerateMelody()` while drums are on keeps
-    the melody's notes/scale but the effective bpm stays the loop's (the new arp pattern's own random bpm
-    field is simply unused while `drumsEnabled`).
-- `ArpeggioPattern.displaySeq` → e.g. "A-C-E-G" (first 4 distinct pitch classes) for the UI readout; also `bpm`.
+  - **Tempo-sync rule** (updated for SPEED): the shared 16th-note tick clock (drives both the arp and the
+    loop's start/swap timing) runs at `effectiveBPM` = `round(baseTempoSource * speedMultiplier(speed))`,
+    where `baseTempoSource` is the active loop's bpm while drums are enabled, else the fixed `baseMelodyBPM`
+    constant. Enabling/disabling drums, any loop swap (`regenerateBeat()` or a fresh loop picked by
+    `renderOffline`'s seed), and any `speed` change are all applied at tick-clock recompute points; the loop
+    swap/enable specifically still applies only at the next **bar boundary** (every 16 ticks) with the loop's
+    sample cursor reset to 0 there, keeping the arp's bar phase and the loop start phase-aligned. `speed`
+    changes may apply immediately (smoothed to avoid zipper/clicks) since they scale time uniformly rather
+    than swapping content. `regenerateMelody()` while drums are on keeps the melody's key/scale/pattern but
+    the effective tempo stays governed by the loop + speed as above.
+- `ArpeggioPattern.displaySeq` → e.g. "A-C-E-G" (first 4 distinct pitch classes) for the UI readout.
 - **Offline render**: `renderOffline(duration: 120s, fadeIn: 3s, fadeOut: 5s, progress: (Double)->Void) async throws -> URL`
   using AVAudioEngine `enableManualRenderingMode(.offline)` with an identical graph + same DSP core seeded
-  with the *current* patterns/params, including the *same* decoded `LoopBuffer` instance as the active
-  loop (bit-identical drum audio in the rendered MP4 vs. live playback). Output: 44.1kHz stereo CAF/WAV in
-  temp dir. Must be cancellable.
+  with the *current* patterns/params — including the live `speed` and `color` values and the *same* decoded
+  `LoopBuffer` instance as the active loop (bit-identical audio, including tape-speed character, in the
+  rendered MP4 vs. live playback). Output: 44.1kHz stereo CAF/WAV in temp dir. Must be cancellable.
 
 ## Video/share pipeline (`Render/`)
-- `ClipRenderer`: builds 120s portrait MP4, 848×1264 (or 720×1080 if perf requires; keep source aspect 2:3),
-  30fps, H.264 + AAC via AVAssetWriter.
+- `ClipRenderer`: builds 120s **square** MP4, 848×848, 30fps, H.264 + AAC via AVAssetWriter (matches the
+  1:1 image library; previously 848×1264 portrait — updated for the square image aspect ratio).
   - Audio: from offline render above (apply fades in the audio pass).
   - Video: current image processed per-frame with Core Image VHS pipeline (must visually match the live SwiftUI
     shader): scanlines, animated noise/grain, slight chroma aberration, vignette, occasional horizontal jitter/
@@ -176,6 +203,27 @@ File-ownership rules: audio agent writes only in `Audio/`; UI agent only in `UI/
 Nobody edits `project.yml`, `Info.plist`, `Resources/` (sources are globbed — new .swift files are picked
 up by `xcodegen generate`). If a dependency from another agent doesn't exist yet at build time, verify what
 compiles standalone and report the gap instead of stubbing someone else's types.
+
+### Addendum (square images + SPEED/COLOR + arp rewrite, 2026-08-23)
+`ArpeggioPattern` and `AudioEngineController` are updated (superseding the shapes above — this is the
+current pinned contract for these types; other structs unchanged):
+```swift
+struct ArpeggioPattern {
+    var displaySeq: String          // e.g. "A-C-E-G" (unchanged)
+    // no randomized `bpm` used for playback anymore — tempo comes from AudioEngineController.effectiveBPM
+}
+
+@MainActor
+final class AudioEngineController: ObservableObject {
+    // ...existing published properties unchanged, PLUS:
+    @Published var speed: Float             // 0...1, default 0.5, tempo/rate multiplier 0.70x...1.30x
+    @Published var color: Float             // 0...1, default ~0.5, synth-only tone dark(0)...bright(1)
+    @Published private(set) var effectiveBPM: Int   // round(baseTempoSource * speedMultiplier(speed))
+}
+```
+Image library images are now 1:1 square (848×848, center-cropped from the original 848×1264 sources, no
+upscaling). `ClipRenderer` output is 848×848 (see Video/share pipeline above). `VHSImageCard`'s aspect ratio
+constraint changes from `848/1264` to `1.0`.
 
 ## Quality bar
 - `xcodebuild -scheme LiminalGenerator -destination 'iPhone 17 Pro simulator' build` must succeed with no

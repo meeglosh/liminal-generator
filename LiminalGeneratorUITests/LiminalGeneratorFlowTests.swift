@@ -84,7 +84,15 @@ final class LiminalGeneratorFlowTests: XCTestCase {
         }
         XCTAssertTrue(changed, "SEQ or BPM readout should change after tapping GENERATE MELODY at least once in 3 tries. seq=\(seqReadout.label) bpm=\(bpmReadout.label)")
 
-        // MARK: 4. Scroll down to GLOBAL ENV; SPACE/AGE sliders exist & adjustable
+        // MARK: 3b. COLOR slider exists in the SYNTH card (below SEQ/BPM) & is adjustable
+
+        let colorSlider = app.otherElements["colorSlider"]
+        scrollUntilHittable(colorSlider, in: app)
+        XCTAssertTrue(colorSlider.exists, "COLOR slider should exist in the SYNTH card")
+        XCTAssertTrue(colorSlider.isHittable, "COLOR slider should be scrolled into view")
+        dragSlider(colorSlider)
+
+        // MARK: 4. Scroll down to GLOBAL ENV; SPACE/AGE/SPEED sliders exist & adjustable
 
         let spaceSlider = app.otherElements["spaceSlider"]
         scrollUntilHittable(spaceSlider, in: app)
@@ -94,12 +102,19 @@ final class LiminalGeneratorFlowTests: XCTestCase {
         let ageSlider = app.otherElements["ageSlider"]
         XCTAssertTrue(ageSlider.exists, "AGE slider should exist")
 
+        let speedSlider = app.otherElements["speedSlider"]
+        scrollUntilHittable(speedSlider, in: app)
+        XCTAssertTrue(speedSlider.exists, "SPEED slider should exist")
+        XCTAssertTrue(speedSlider.isHittable, "SPEED slider should be scrolled into view")
+
         saveScreenshot(app, name: "03_controls_lower.png")
 
-        // Adjust the SPACE slider via a coordinate drag (it's a custom
-        // blocky fader, not a UISlider, so we synthesize the drag directly
-        // rather than relying on the `adjustable` accessibility trait).
+        // Adjust the SPACE and SPEED sliders via a coordinate drag (they're
+        // custom blocky faders, not UISliders, so we synthesize the drag
+        // directly rather than relying on the `adjustable` accessibility
+        // trait).
         dragSlider(spaceSlider)
+        dragSlider(speedSlider)
 
         // MARK: 5. Enable LOFI BEATS -> LEVEL slider + GENERATE BEAT + LOOP readout appear
 

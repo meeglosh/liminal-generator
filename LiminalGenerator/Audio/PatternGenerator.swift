@@ -3,12 +3,18 @@
 //  LiminalGenerator
 //
 //  Random arpeggio + drum pattern generation in the "liminal" style: slow,
-//  hazy, melancholic. Musical parameters (key, scale, bpm) live on
-//  `ArpeggioPattern`; the render-side (`LiminalDSPCore`) just reads MIDI
-//  notes/velocities off the step arrays -- it doesn't need music theory.
+//  hazy, melancholic, always straight/even (no rests, no held notes, no
+//  swing -- every step triggers its own note). Musical parameters (key,
+//  scale, pattern shape) live on `ArpeggioPattern`; tempo is NOT one of
+//  them -- see `AudioEngineController.effectiveBPM`/`speed`. The render
+//  side (`LiminalDSPCore`) just reads MIDI notes/velocities off the step
+//  array -- it doesn't need music theory.
 //
-//  Pinned contract (do not rename): `ArpeggioPattern.displaySeq: String`,
-//  `ArpeggioPattern.bpm: Int`.
+//  Pinned contract (do not rename): `ArpeggioPattern.displaySeq: String`.
+//  Per the SPEC.md addendum, `ArpeggioPattern` no longer carries a
+//  randomized `bpm` used for playback -- nothing reads a per-pattern bpm
+//  for timing anymore; the tick clock's rate comes from
+//  `AudioEngineController.effectiveBPM`.
 
 import Foundation
 
@@ -35,39 +41,62 @@ struct SeededGenerator: RandomNumberGenerator {
 
 // MARK: - Scales
 
+/// Weighted at selection time (see `PatternGenerator.randomScale`): 90%
+/// uniformly from the first four cases, 10% `majorPentatonic` as an
+/// occasional sprinkle. Natural-minor/major-7-pentatonic from the pre-
+/// addendum generator are retired.
 enum LiminalScale: CaseIterable {
-    case naturalMinor
+    case minorPentatonic
     case dorian
-    case majorPentatonic7
+    case mixolydian
+    case lydian
+    case majorPentatonic
 
     /// Semitone offsets from the root, ascending within one octave.
     var intervals: [Int] {
         switch self {
-        case .naturalMinor: return [0, 2, 3, 5, 7, 8, 10]
+        case .minorPentatonic: return [0, 3, 5, 7, 10]
         case .dorian: return [0, 2, 3, 5, 7, 9, 10]
-        case .majorPentatonic7: return [0, 2, 4, 7, 9, 11] // pentatonic + maj7 color tone
+        case .mixolydian: return [0, 2, 4, 5, 7, 9, 10]
+        case .lydian: return [0, 2, 4, 6, 7, 9, 11]
+        case .majorPentatonic: return [0, 2, 4, 7, 9]
         }
     }
+}
+
+// MARK: - Pattern shape
+
+/// Exactly one is chosen per `regenerateMelody()` call. `up`/`down` walk a
+/// fixed 2-octave ascending/descending scale-degree ladder
+/// (`PatternGenerator.octaveSpanDegrees`); `upDown` ascends to the top of
+/// that ladder then back down without repeating the peak note. All three
+/// are tiled (cyclically repeated) to fill the fixed
+/// `PatternGenerator.stepCount` steps -- see `PatternGenerator.buildDegreeSequence`.
+enum ArpShape: CaseIterable {
+    case up
+    case down
+    case upDown
 }
 
 // MARK: - Arpeggio pattern
 
 struct ArpStep: Sendable {
-    /// MIDI note number, or nil for a rest.
-    var midiNote: Int?
-    /// 0...1
+    /// MIDI note number. No rests/holds anymore -- every step triggers its
+    /// own note-on with straight, even timing.
+    var midiNote: Int
+    /// 0...1. Small humanization jitter only -- not a randomized musical
+    /// parameter.
     var velocity: Float
-    /// If true, this step ties over from the previous sounding note --
-    /// the sequencer must NOT retrigger a new voice for it.
-    var hold: Bool
 }
 
 struct ArpeggioPattern: Sendable {
     var displaySeq: String
-    var bpm: Int
     var steps: [ArpStep]
     /// Root MIDI note of the pattern's key (kept for reference/debugging).
     var rootMIDI: Int
+    /// Kept for debugging/tests only -- not read by the DSP core for timing.
+    var scale: LiminalScale
+    var shape: ArpShape
 }
 
 // MARK: - Drum pattern (loop selection)
@@ -91,6 +120,23 @@ enum PatternGenerator {
         "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B",
     ]
 
+    /// Fixed step count for every generated arpeggio (NOT randomized --
+    /// see SPEC.md addendum). 16 gives one trigger per 16th-note tick
+    /// (`ArpeggioSequencer.ticksPerStep == 1`), the finest grid the shared
+    /// tick clock supports, which best resolves the `upDown` zigzag shape
+    /// across the fixed 2-octave span.
+    static let stepCount = 16
+
+    /// Fixed octave span for the `up`/`down`/`upDown` scale-degree ladder:
+    /// exactly 2 octaves (24 semitones == `2 * intervals.count` scale
+    /// degrees, which always lands precisely on `root + 24` regardless of
+    /// scale since `intervals[0] == 0` for every scale here).
+    private static let octaveSpanMultiplier = 2
+
+    /// Warm low-mid register anchor: root pitch class 0 (C) maps to MIDI 48
+    /// (C3); pitch classes 1...11 sit within the same octave (48...59).
+    private static let rootOctaveAnchorMIDI = 48
+
     // MARK: Arpeggio
 
     static func randomArpeggioPattern() -> ArpeggioPattern {
@@ -98,67 +144,88 @@ enum PatternGenerator {
         return randomArpeggioPattern(using: &rng)
     }
 
+    /// Re-rolls ONLY root key, scale, and pattern shape (per SPEC.md
+    /// addendum) -- step count and octave span are the program constants
+    /// above, velocity carries only small humanization jitter.
     static func randomArpeggioPattern<R: RandomNumberGenerator>(using rng: inout R) -> ArpeggioPattern {
-        let scale = LiminalScale.allCases.randomElement(using: &rng) ?? .naturalMinor
+        let rootPitchClass = Int.random(in: 0...11, using: &rng)
+        let rootMIDI = rootOctaveAnchorMIDI + rootPitchClass
+        let scale = randomScale(using: &rng)
+        let shape = ArpShape.allCases.randomElement(using: &rng) ?? .up
+
         let intervals = scale.intervals
-        let rootMIDI = Int.random(in: 45...52, using: &rng) // A2...E3-ish, warm low-mid center
-        let bpm = Int.random(in: 68...96, using: &rng)
-        let stepCount = Bool.random(using: &rng) ? 8 : 16
-        let octaveSpan = Bool.random(using: &rng) ? 1 : 2
-
-        // Implied i-VI-III-VII-style movement: split the pattern into 4
-        // equal segments, each centered on a scale-degree "chord" root.
-        let segmentDegreeRoots = [0, 5, 2, 6] // i, VI, III, VII (0-based scale degree indices)
-        let stepsPerSegment = max(1, stepCount / 4)
-
-        func degreeToMIDI(_ degree: Int, octaveOffset: Int) -> Int {
-            let n = intervals.count
-            let wrapped = ((degree % n) + n) % n
-            let octavesFromWrap = degree >= 0 ? degree / n : (degree - n + 1) / n
-            return rootMIDI + intervals[wrapped] + 12 * octavesFromWrap + 12 * octaveOffset
-        }
+        let degreeSequence = buildDegreeSequence(shape: shape, scaleDegreeCount: intervals.count, stepCount: stepCount)
 
         var steps: [ArpStep] = []
         steps.reserveCapacity(stepCount)
-
-        for i in 0..<stepCount {
-            let segment = min(i / stepsPerSegment, 3)
-            let chordRootDegree = segmentDegreeRoots[segment]
-            let chordTonePool = [chordRootDegree, chordRootDegree + 2, chordRootDegree + 4]
-
-            let roll = Float.random(in: 0...1, using: &rng)
-            if roll < 0.12 && i > 0 {
-                // Rest.
-                steps.append(ArpStep(midiNote: nil, velocity: 0, hold: false))
-                continue
-            }
-            if roll < 0.22 && i > 0 {
-                // Hold/tie the previous sounding note.
-                let previousNote = steps.reversed().first(where: { $0.midiNote != nil })?.midiNote
-                steps.append(ArpStep(midiNote: previousNote, velocity: 0, hold: true))
-                continue
-            }
-
-            let useChordTone = Float.random(in: 0...1, using: &rng) < 0.75
-            let degree = useChordTone
-                ? (chordTonePool.randomElement(using: &rng) ?? chordRootDegree)
-                : Int.random(in: 0..<intervals.count, using: &rng)
-            let octaveOffset = octaveSpan == 1 ? 0 : Int.random(in: 0...1, using: &rng)
-            let midi = degreeToMIDI(degree, octaveOffset: octaveOffset)
-            let velocity = Float.random(in: 0.55...1.0, using: &rng)
-            steps.append(ArpStep(midiNote: midi, velocity: velocity, hold: false))
+        for degree in degreeSequence {
+            let midi = scaleDegreeMIDI(rootMIDI: rootMIDI, intervals: intervals, degree: degree)
+            let velocity = rng.nextHumanizedVelocity()
+            steps.append(ArpStep(midiNote: midi, velocity: velocity))
         }
 
         let displaySeq = makeDisplaySeq(steps: steps)
-        return ArpeggioPattern(displaySeq: displaySeq, bpm: bpm, steps: steps, rootMIDI: rootMIDI)
+        return ArpeggioPattern(displaySeq: displaySeq, steps: steps, rootMIDI: rootMIDI, scale: scale, shape: shape)
+    }
+
+    /// 90% uniformly from {minorPentatonic, dorian, mixolydian, lydian},
+    /// 10% majorPentatonic as an occasional sprinkle.
+    private static func randomScale<R: RandomNumberGenerator>(using rng: inout R) -> LiminalScale {
+        let commonScales: [LiminalScale] = [.minorPentatonic, .dorian, .mixolydian, .lydian]
+        let roll = Float.random(in: 0...1, using: &rng)
+        if roll < 0.10 {
+            return .majorPentatonic
+        }
+        return commonScales.randomElement(using: &rng) ?? .minorPentatonic
+    }
+
+    /// Maps a scale degree (can exceed `intervals.count`, wraps with an
+    /// octave shift) to an absolute MIDI note.
+    private static func scaleDegreeMIDI(rootMIDI: Int, intervals: [Int], degree: Int) -> Int {
+        let k = intervals.count
+        let wrapped = ((degree % k) + k) % k
+        let octave = degree >= 0 ? degree / k : (degree - k + 1) / k
+        return rootMIDI + intervals[wrapped] + 12 * octave
+    }
+
+    /// Builds the fixed-length (`stepCount`) sequence of scale degrees for
+    /// a pattern shape, by tiling (cyclically repeating) the shape's
+    /// natural one-cycle degree ladder over the fixed 2-octave span:
+    ///   - `up`: degrees `0...2k` ascending (k = scaleDegreeCount), tiled.
+    ///   - `down`: the same ladder reversed, tiled.
+    ///   - `upDown`: ascend `0...2k` then back down to (but excluding) the
+    ///     root and the already-played peak, i.e. no repeated peak note at
+    ///     the turnaround; that `(2k+1) + (2k-1) = 4k` length cycle is tiled.
+    /// Tiling (rather than growing the octave span with more steps) is what
+    /// keeps the octave span fixed regardless of `stepCount`/scale size.
+    static func buildDegreeSequence(shape: ArpShape, scaleDegreeCount k: Int, stepCount: Int) -> [Int] {
+        guard k > 0 else { return Array(repeating: 0, count: stepCount) }
+        let topDegree = octaveSpanMultiplier * k
+        let ascendLadder = Array(0...topDegree) // length topDegree + 1, e.g. 0...2k
+
+        let cycle: [Int]
+        switch shape {
+        case .up:
+            cycle = ascendLadder
+        case .down:
+            cycle = ascendLadder.reversed()
+        case .upDown:
+            // Ascend to the peak, then back down without repeating the
+            // peak (drop the last element of the reversed descent's
+            // leading edge) -- classic zigzag, no doubled turnaround note.
+            let descend = ascendLadder.reversed().dropFirst() // exclude the peak (already played)
+            cycle = ascendLadder + Array(descend)
+        }
+
+        guard !cycle.isEmpty else { return Array(repeating: 0, count: stepCount) }
+        return (0..<stepCount).map { cycle[$0 % cycle.count] }
     }
 
     private static func makeDisplaySeq(steps: [ArpStep]) -> String {
         var seen = Set<Int>()
         var names: [String] = []
         for step in steps {
-            guard let note = step.midiNote else { continue }
-            let pc = ((note % 12) + 12) % 12
+            let pc = ((step.midiNote % 12) + 12) % 12
             if seen.insert(pc).inserted {
                 names.append(pitchClassNames[pc])
                 if names.count == 4 { break }
@@ -190,5 +257,13 @@ enum PatternGenerator {
         }
         let info = LoopLibrary.all[index]
         return DrumPattern(loopIndex: index, displayName: info.displayName, bpm: info.bpm)
+    }
+}
+
+private extension RandomNumberGenerator {
+    /// Small humanization jitter around a confident lead-line level --
+    /// NOT a randomized musical parameter (accenting only).
+    mutating func nextHumanizedVelocity() -> Float {
+        Float.random(in: 0.78...0.98, using: &self)
     }
 }

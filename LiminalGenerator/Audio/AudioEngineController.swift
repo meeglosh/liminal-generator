@@ -72,15 +72,41 @@ final class AudioEngineController: ObservableObject {
     }
 
     @Published var drumsEnabled: Bool = false {
-        didSet { dsp.setDrumsEnabled(drumsEnabled) }
+        didSet {
+            dsp.setDrumsEnabled(drumsEnabled)
+            recomputeEffectiveBPM()
+        }
     }
 
     @Published var drumLevel: Float = 0.65 { // 0...1 (maps -inf...+6dB)
         didSet { dsp.setDrumLevel(drumLevel) }
     }
 
+    /// Tape-style playback-rate control: 0...1, default 0.5 == exactly
+    /// 1.0x (see `speedMultiplier` in DSPMath.swift for the 0.70x...1.30x
+    /// curve). Scales both the shared tick clock (arp + loop timing) and
+    /// the drum loop's own playback rate -- see SPEC.md "Musical style".
+    @Published var speed: Float = 0.5 {
+        didSet {
+            dsp.setSpeed(speed)
+            recomputeEffectiveBPM()
+        }
+    }
+
+    /// Synth-only filter tone bias: 0...1, default ~0.5, dark(0)...bright(1).
+    /// Never affects the drum loop bus.
+    @Published var color: Float = 0.5 {
+        didSet { dsp.setColor(color) }
+    }
+
     @Published private(set) var currentPattern: ArpeggioPattern
     @Published private(set) var currentBeat: DrumPattern
+    /// `round(baseTempoSource * speedMultiplier(speed))`, where
+    /// `baseTempoSource` is `currentBeat.bpm` while `drumsEnabled`, else the
+    /// fixed `baseMelodyBPM` constant. What the SYNTH card's BPM readout
+    /// displays. Recomputed whenever `speed`, `drumsEnabled`, or
+    /// `currentBeat` change (see `recomputeEffectiveBPM`).
+    @Published private(set) var effectiveBPM: Int = 0
 
     private let engine = AVAudioEngine()
     private let reverb = AVAudioUnitReverb()
@@ -98,11 +124,23 @@ final class AudioEngineController: ObservableObject {
                               loopBuffer: LoopLoader.buffers[beat.loopIndex],
                               space: 0.55, age: 0.4,
                               drumsEnabled: false, drumLevel: 0.65,
+                              speed: 0.5, color: 0.5,
                               sampleRate: Self.sampleRate)
 
         configureAudioSession()
         setupEngineGraph()
         setupInterruptionHandling()
+        recomputeEffectiveBPM()
+    }
+
+    /// `effectiveBPM = round(baseTempoSource * speedMultiplier(speed))`,
+    /// where `baseTempoSource` is `currentBeat.bpm` while `drumsEnabled`,
+    /// else the fixed `baseMelodyBPM` constant (DSPMath.swift) -- the same
+    /// constant `LiminalDSPCore.scheduleNextTick` drives the actual tick
+    /// clock from, so this readout always matches the audible tempo.
+    private func recomputeEffectiveBPM() {
+        let base = drumsEnabled ? Double(currentBeat.bpm) : baseMelodyBPM
+        effectiveBPM = Int((base * Double(speedMultiplier(speed))).rounded())
     }
 
     deinit {
@@ -137,6 +175,7 @@ final class AudioEngineController: ObservableObject {
         let beat = PatternGenerator.randomDrumPattern(excludingLoopIndex: currentBeat.loopIndex)
         currentBeat = beat
         dsp.setBeat(beat, buffer: LoopLoader.buffers[beat.loopIndex])
+        recomputeEffectiveBPM()
     }
 
     // MARK: Offline render
@@ -153,7 +192,8 @@ final class AudioEngineController: ObservableObject {
         let seed = OfflineRenderSeed(pattern: currentPattern, beat: currentBeat,
                                       loopBuffer: LoopLoader.buffers[currentBeat.loopIndex],
                                       space: space, age: age,
-                                      drumsEnabled: drumsEnabled, drumLevel: drumLevel)
+                                      drumsEnabled: drumsEnabled, drumLevel: drumLevel,
+                                      speed: speed, color: color)
         return try await Self.performOfflineRender(seed: seed,
                                                      duration: duration,
                                                      fadeIn: fadeIn,
@@ -179,6 +219,7 @@ final class AudioEngineController: ObservableObject {
                                   loopBuffer: seed.loopBuffer,
                                   space: seed.space, age: seed.age,
                                   drumsEnabled: seed.drumsEnabled, drumLevel: seed.drumLevel,
+                                  speed: seed.speed, color: seed.color,
                                   sampleRate: sampleRate)
 
         let chunkFrames = 4_096
@@ -367,4 +408,6 @@ private struct OfflineRenderSeed: Sendable {
     let age: Float
     let drumsEnabled: Bool
     let drumLevel: Float
+    let speed: Float
+    let color: Float
 }
