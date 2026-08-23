@@ -233,6 +233,8 @@ struct LiminalChip: View {
         Text(text.uppercased())
             .font(.spaceMono(size: 10))
             .tracking(1.5)
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
             .foregroundColor(isSelected ? .liminalOnPrimary : .liminalOnSurfaceVariant)
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
