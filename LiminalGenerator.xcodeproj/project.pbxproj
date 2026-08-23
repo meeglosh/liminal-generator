@@ -19,6 +19,7 @@
 		4C6087F3CF0096738701AAD4 /* VHSShader.metal in Sources */ = {isa = PBXBuildFile; fileRef = D039DBB9E7D16738DAA1F974 /* VHSShader.metal */; };
 		4D7CB339038541CA48445282 /* AboutSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38B18B531C87BA506A5B1D5F /* AboutSheet.swift */; };
 		4FE2BC9B1F8C8B79F4BB2EB3 /* MainView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F06BFE93A0D31A4F0EA3A4D /* MainView.swift */; };
+		5087FC39073F775167B7DD73 /* JunoChorus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98225262E497CE2E6C86B2A0 /* JunoChorus.swift */; };
 		50E937BE2E69397D40769BE5 /* WowFlutterProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = AEEFFE8CF57B65D8550A46DC /* WowFlutterProcessor.swift */; };
 		574DD6475E7E50521F148D4D /* LiminalGeneratorFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1CB1680ACDFF673331D8A4D /* LiminalGeneratorFlowTests.swift */; };
 		58DF960743D17DD58CB6D970 /* SpaceMono-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 7D54B44606A4BF0318936463 /* SpaceMono-Regular.ttf */; };
@@ -98,6 +99,7 @@
 		7D54B44606A4BF0318936463 /* SpaceMono-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "SpaceMono-Regular.ttf"; sourceTree = "<group>"; };
 		822B1260CF76A08E510743AE /* AutoRenderBootstrap.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = AutoRenderBootstrap.c; sourceTree = "<group>"; };
 		919D956FD48BE77EE095FF9D /* loop_95_dusty.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = loop_95_dusty.wav; sourceTree = "<group>"; };
+		98225262E497CE2E6C86B2A0 /* JunoChorus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JunoChorus.swift; sourceTree = "<group>"; };
 		98D10E3700D3289E6BA4A194 /* loop_95_vinyl.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = loop_95_vinyl.wav; sourceTree = "<group>"; };
 		A1341C228BC284BF3B350F98 /* loop_76_midnight.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = loop_76_midnight.wav; sourceTree = "<group>"; };
 		A604485A59B89E1D347C0D4B /* loop_70_drift.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = loop_70_drift.wav; sourceTree = "<group>"; };
@@ -139,6 +141,7 @@
 				5B0AF4662DE5803EE8B76C5E /* BassSequencer.swift */,
 				38EB8E1B224AF3AAF51C28B7 /* BassVoice.swift */,
 				C306B45D3A52C1C683288F17 /* DSPMath.swift */,
+				98225262E497CE2E6C86B2A0 /* JunoChorus.swift */,
 				226F2045D6B6C873CE9CE85B /* LiminalDSPCore.swift */,
 				45FF0C75F9A539F79B61B5E3 /* LoopPlayer.swift */,
 				146B2F1239909D0C484D7EA9 /* PadVoice.swift */,
@@ -374,6 +377,7 @@
 				B0A262DE925A3BD1E67338F7 /* Components.swift in Sources */,
 				965AB1B7601EC81EDEA7FF3D /* DSPMath.swift in Sources */,
 				C2759AF789C59FF9F82DFA31 /* ImageLibrary.swift in Sources */,
+				5087FC39073F775167B7DD73 /* JunoChorus.swift in Sources */,
 				DD66E4587BE1E13944549125 /* LiminalDSPCore.swift in Sources */,
 				6C2530E6C096E2ED6B29581E /* LiminalGeneratorApp.swift in Sources */,
 				76F361B542DEA6B563D865C4 /* LoopManifest.swift in Sources */,

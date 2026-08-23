@@ -123,6 +123,11 @@ App Store Connect app id `6804471660`, app name "Liminal Generator".
   per-file source/license records.
 - Library images are 1:1 square (848×848); video render output (`ClipRenderer`) is also 848×848.
 - Card order top to bottom: VHS image → SYNTH → BASSLINE → GLOBAL ENV → DRUMS → RENDER & SHARE.
+- GLOBAL ENV card slider order: SPACE, AGE, NOSTALGIA, SPEED.
+- NOSTALGIA (GLOBAL ENV card, sub-label BBD_CHORUS): Juno-106-style BBD stereo chorus on the SYNTH layer
+  only (pads + melody; `JunoChorus.swift` — 2.5ms base delay, 0.5Hz antiphase triangle LFOs ±0.875ms,
+  slight mode-II blend above 0.5) — zero effect on bass/drums (verified: max sample delta 0.0). Published
+  `nostalgia: Float` 0–1, default 0.4; slider crossfades dry → Juno's native 50/50 wet blend.
 - SPEED (GLOBAL ENV card): tape-style tempo/rate, also pitch-shifts the drum loop like a tape deck.
   COLOR (SYNTH card): real 24dB/oct lowpass on the whole synth layer (pads+melody), dark↔bright.
   Below COLOR: 4 waveform chips (SINE/TRIANGLE/SQUARE/SAW) selecting the MELODY oscillator shape only

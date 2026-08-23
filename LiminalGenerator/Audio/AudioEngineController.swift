@@ -126,6 +126,15 @@ final class AudioEngineController: ObservableObject {
         didSet { dsp.setBassLevel(bassLevel) }
     }
 
+    /// SPEC.md Addendum 4: Roland Juno-106-style BBD stereo chorus mix,
+    /// SYNTH LAYER ONLY (pads + melody, same scope as `color`) -- zero
+    /// effect on bass/drums, see `LiminalDSPCore.render`/`JunoChorus`.
+    /// 0...1, default 0.4 (audibly lush out of the box). Smoothed downstream
+    /// (`LiminalDSPCore.smNostalgia`) so drags never zipper.
+    @Published var nostalgia: Float = 0.4 {
+        didSet { dsp.setNostalgia(nostalgia) }
+    }
+
     @Published private(set) var currentPattern: ArpeggioPattern
     @Published private(set) var currentBeat: DrumPattern
     /// Internal only -- no UI-facing readout (per SPEC.md: "No SEQ/BPM
@@ -161,6 +170,7 @@ final class AudioEngineController: ObservableObject {
                               speed: 0.5, color: 0.5,
                               waveform: .sine,
                               bassEnabled: false, bassColor: 0.5, bassLevel: 0.65,
+                              nostalgia: 0.4,
                               sampleRate: Self.sampleRate)
 
         configureAudioSession()
@@ -254,7 +264,8 @@ final class AudioEngineController: ObservableObject {
                                       drumsEnabled: drumsEnabled, drumLevel: drumLevel,
                                       speed: speed, color: color,
                                       waveform: waveform,
-                                      bassEnabled: bassEnabled, bassColor: bassColor, bassLevel: bassLevel)
+                                      bassEnabled: bassEnabled, bassColor: bassColor, bassLevel: bassLevel,
+                                      nostalgia: nostalgia)
         return try await Self.performOfflineRender(seed: seed,
                                                      duration: duration,
                                                      fadeIn: fadeIn,
@@ -284,6 +295,7 @@ final class AudioEngineController: ObservableObject {
                                   speed: seed.speed, color: seed.color,
                                   waveform: seed.waveform,
                                   bassEnabled: seed.bassEnabled, bassColor: seed.bassColor, bassLevel: seed.bassLevel,
+                                  nostalgia: seed.nostalgia,
                                   sampleRate: sampleRate)
 
         let chunkFrames = 4_096
@@ -479,4 +491,5 @@ private struct OfflineRenderSeed: Sendable {
     let bassEnabled: Bool
     let bassColor: Float
     let bassLevel: Float
+    let nostalgia: Float
 }

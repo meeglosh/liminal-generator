@@ -34,9 +34,13 @@ final class ParamSnapshot: @unchecked Sendable {
     let bassEnabled: Bool
     let bassColor: Float
     let bassLevel: Float
+    /// SPEC.md Addendum 4: Juno-106-style BBD stereo chorus mix, synth
+    /// layer only (pads + melody). 0 = fully dry, 1 = full 50/50 wet blend.
+    let nostalgia: Float
 
     init(space: Float, age: Float, drumsEnabled: Bool, drumLevel: Float, speed: Float, color: Float,
-         waveform: LiminalWaveform, bassEnabled: Bool, bassColor: Float, bassLevel: Float) {
+         waveform: LiminalWaveform, bassEnabled: Bool, bassColor: Float, bassLevel: Float,
+         nostalgia: Float) {
         self.space = space
         self.age = age
         self.drumsEnabled = drumsEnabled
@@ -47,11 +51,13 @@ final class ParamSnapshot: @unchecked Sendable {
         self.bassEnabled = bassEnabled
         self.bassColor = bassColor
         self.bassLevel = bassLevel
+        self.nostalgia = nostalgia
     }
 
     static let initial = ParamSnapshot(space: 0.55, age: 0.4, drumsEnabled: false, drumLevel: 0.65,
                                         speed: 0.5, color: 0.5, waveform: .triangle,
-                                        bassEnabled: false, bassColor: 0.5, bassLevel: 0.65)
+                                        bassEnabled: false, bassColor: 0.5, bassLevel: 0.65,
+                                        nostalgia: 0.4)
 }
 
 /// Wraps a value type (e.g. `ArpeggioPattern`, `DrumPattern`) in a class so

@@ -341,3 +341,24 @@ when in doubt, choose fewer notes, slower envelopes, and darker defaults.
   warnings-as-errors issues; app runs, audio plays immediately on PLAY, no crackles (render callback does no
   allocation/locks), UI at 60fps, render completes ≤ ~60s on simulator.
 - Unit tests where cheap (pattern generator determinism with seeded RNG, fade math, timestamp formatting).
+
+### Addendum 4 (NOSTALGIA — Juno-106-style chorus, 2026-08-23)
+New global slider "NOSTALGIA" in the GLOBAL ENV card, positioned directly UNDER the AGE slider (order:
+SPACE, AGE, NOSTALGIA, SPEED). It mixes in a Roland Juno-106-style BBD stereo chorus applied to the SYNTH
+LAYER ONLY (pads + melody voice — same scope as the COLOR filter). It must have ZERO effect on the bass and
+drum layers: the chorus sits on the synth bus BEFORE it is summed with bass/drums, upstream of the shared
+wow/flutter → hiss → reverb chain (which continues to affect everything as before).
+
+- **Sound**: classic Juno-106 chorus character — two short modulated delay lines (~1.5–3.5ms base delay)
+  with triangle LFOs in antiphase between L and R for wide stereo (mode-I-style rate ≈ 0.5Hz with ~1.5–2ms
+  sweep; a subtle blend toward mode-II speed at higher slider values is acceptable if it stays lush, never
+  wobbly/seasick). Wet/dry 50/50 at full wet is the Juno topology; the slider crossfades dry→(dry+wet).
+- **Pinned contract**: `AudioEngineController.nostalgia: Float` (published, 0...1, default 0.4 — audibly
+  lush out of the box, on-brand for the genre). Smoothed like other params (no zipper). Seeded into
+  `renderOffline` like every live param.
+- **UI**: `LiminalSliderRow` labeled "NOSTALGIA", right sub-label "BBD_CHORUS", endpoints "0"/"10", bound
+  to `engine.nostalgia`, accessibility id `nostalgiaSlider`. UI test asserts existence + adjustability.
+- **Quality bar**: chorus audible and clearly stereo-widening on the synth layer at nostalgia=1 vs 0
+  (measurable L/R decorrelation and ~0.5Hz pitch modulation); bass/drum layers bit-identical (or
+  numerically identical within float tolerance) regardless of the slider; no clicks while dragging;
+  render-callback stays allocation/lock-free.

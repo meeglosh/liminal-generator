@@ -256,6 +256,14 @@ struct MainView: View {
                 sliderAccessibilityIdentifier: "ageSlider"
             )
             LiminalSliderRow(
+                label: "NOSTALGIA",
+                subLabel: "BBD_CHORUS",
+                leftEndpoint: "0",
+                rightEndpoint: "10",
+                value: $engine.nostalgia,
+                sliderAccessibilityIdentifier: "nostalgiaSlider"
+            )
+            LiminalSliderRow(
                 label: "SPEED",
                 subLabel: "TEMPO",
                 leftEndpoint: "0",

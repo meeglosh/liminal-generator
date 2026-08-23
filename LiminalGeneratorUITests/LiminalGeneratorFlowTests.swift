@@ -159,6 +159,13 @@ final class LiminalGeneratorFlowTests: XCTestCase {
         let ageSlider = app.otherElements["ageSlider"]
         XCTAssertTrue(ageSlider.exists, "AGE slider should exist")
 
+        // NOSTALGIA sits directly under AGE (SPEC.md Addendum 4 order:
+        // SPACE, AGE, NOSTALGIA, SPEED) -- the Juno-106-style BBD chorus mix.
+        let nostalgiaSlider = app.otherElements["nostalgiaSlider"]
+        scrollUntilHittable(nostalgiaSlider, in: app)
+        XCTAssertTrue(nostalgiaSlider.exists, "NOSTALGIA slider should exist")
+        XCTAssertTrue(nostalgiaSlider.isHittable, "NOSTALGIA slider should be scrolled into view")
+
         let speedSlider = app.otherElements["speedSlider"]
         scrollUntilHittable(speedSlider, in: app)
         XCTAssertTrue(speedSlider.exists, "SPEED slider should exist")
@@ -166,11 +173,13 @@ final class LiminalGeneratorFlowTests: XCTestCase {
 
         saveScreenshot(app, name: "03_controls_lower.png")
 
-        // Adjust the SPACE and SPEED sliders via a coordinate drag (they're
-        // custom blocky faders, not UISliders, so we synthesize the drag
-        // directly rather than relying on the `adjustable` accessibility
-        // trait).
+        // Adjust the SPACE, NOSTALGIA, and SPEED sliders via a coordinate
+        // drag (they're custom blocky faders, not UISliders, so we
+        // synthesize the drag directly rather than relying on the
+        // `adjustable` accessibility trait).
         dragSlider(spaceSlider)
+        scrollUntilHittable(nostalgiaSlider, in: app)
+        dragSlider(nostalgiaSlider)
         dragSlider(speedSlider)
 
         // MARK: 5. Enable LOFI BEATS -> LEVEL slider + GENERATE BEAT + LOOP readout appear

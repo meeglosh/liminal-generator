@@ -47,6 +47,7 @@ final class LiminalDSPCore: @unchecked Sendable {
     private var shadowBassEnabled: Bool
     private var shadowBassColor: Float
     private var shadowBassLevel: Float
+    private var shadowNostalgia: Float
 
     // MARK: Render-thread-only state
 
@@ -65,6 +66,11 @@ final class LiminalDSPCore: @unchecked Sendable {
     private var wowR: WowFlutterProcessor
     private var hissL: TapeHiss
     private var hissR: TapeHiss
+    /// SPEC.md Addendum 4: Juno-106-style BBD stereo chorus. Sits on the
+    /// SYNTH BUS ONLY (pads + melody, summed here AFTER their own per-voice
+    /// filters), strictly BEFORE that bus is added to bass/drums -- see
+    /// `render`. Bass and drums never reach this instance at all.
+    private var junoChorus: JunoChorus
     private var ageLPL = AgeLowpass()
     private var ageLPR = AgeLowpass()
 
@@ -91,6 +97,12 @@ final class LiminalDSPCore: @unchecked Sendable {
     /// Smoothed bassColor (0...1) -- same buffer-rate, trigger-time-only
     /// consumption pattern as `smColor`, see `BassVoice.noteOn`.
     private var smBassColor: SmoothedParam
+    /// Smoothed NOSTALGIA (0...1). Advanced every sample (like `smSpeed`/
+    /// `smAge`/`smDrumGain`/`smBassGain`) rather than read once per buffer,
+    /// since it's applied continuously to the chorus wet/dry crossfade
+    /// every sample, not just at note-trigger time -- sample-accurate
+    /// smoothing keeps slider drags click/zipper-free.
+    private var smNostalgia: SmoothedParam
 
     private var lastSeenArpRef: ValueBox<ArpeggioPattern>?
     private var lastSeenDrumRef: ValueBox<LoopSwapPayload>?
@@ -144,7 +156,7 @@ final class LiminalDSPCore: @unchecked Sendable {
     ///     `LoopBuffer` instance guarantees bit-identical drum audio).
     ///   - bassPattern: initial bassline pattern (see `BasslinePattern`).
     ///   - space/age/drumsEnabled/drumLevel/speed/color/waveform/bassEnabled/
-    ///     bassColor/bassLevel: initial parameter values.
+    ///     bassColor/bassLevel/nostalgia: initial parameter values.
     init(pattern: ArpeggioPattern,
          beat: DrumPattern,
          loopBuffer: LoopBuffer,
@@ -159,6 +171,7 @@ final class LiminalDSPCore: @unchecked Sendable {
          bassEnabled: Bool,
          bassColor: Float,
          bassLevel: Float,
+         nostalgia: Float,
          sampleRate: Double = 44_100) {
         self.sampleRate = sampleRate
 
@@ -172,10 +185,12 @@ final class LiminalDSPCore: @unchecked Sendable {
         shadowBassEnabled = bassEnabled
         shadowBassColor = bassColor
         shadowBassLevel = bassLevel
+        shadowNostalgia = nostalgia
 
         paramBox = SnapshotBox(ParamSnapshot(space: space, age: age, drumsEnabled: drumsEnabled, drumLevel: drumLevel,
                                               speed: speed, color: color, waveform: waveform,
-                                              bassEnabled: bassEnabled, bassColor: bassColor, bassLevel: bassLevel))
+                                              bassEnabled: bassEnabled, bassColor: bassColor, bassLevel: bassLevel,
+                                              nostalgia: nostalgia))
         let arpValueBox = ValueBox(pattern)
         let drumValueBox = ValueBox(LoopSwapPayload(pattern: beat, buffer: loopBuffer))
         let bassValueBox = ValueBox(bassPattern)
@@ -196,6 +211,7 @@ final class LiminalDSPCore: @unchecked Sendable {
         wowR = WowFlutterProcessor(sampleRate: sampleRate, phaseOffset: 0.27)
         hissL = TapeHiss(sampleRate: sampleRate, seed: 0x1111_2222_3333_4444)
         hissR = TapeHiss(sampleRate: sampleRate, seed: 0x5555_6666_7777_8888)
+        junoChorus = JunoChorus(sampleRate: sampleRate)
         loopLowpassCoeff = OnePoleLowpass.coefficient(cutoffHz: 8_500, sampleRate: sampleRate)
 
         smSpace = SmoothedParam(initial: space, timeConstant: 0.02, sampleRate: sampleRate)
@@ -207,6 +223,7 @@ final class LiminalDSPCore: @unchecked Sendable {
         smSpeed = SmoothedParam(initial: speed, timeConstant: 0.02, sampleRate: sampleRate)
         smColor = SmoothedParam(initial: color, timeConstant: 0.02, sampleRate: sampleRate)
         smBassColor = SmoothedParam(initial: bassColor, timeConstant: 0.02, sampleRate: sampleRate)
+        smNostalgia = SmoothedParam(initial: nostalgia, timeConstant: 0.02, sampleRate: sampleRate)
 
         activeTempoUsesLoop = drumsEnabled
         pendingDrumsEnabledForTempo = drumsEnabled
@@ -281,6 +298,14 @@ final class LiminalDSPCore: @unchecked Sendable {
         publishParams()
     }
 
+    /// Juno-106-style BBD stereo chorus mix (0...1) -- synth layer only
+    /// (pads + melody). Never applied to the bassline or drums. See
+    /// `JunoChorus` and SPEC.md Addendum 4.
+    func setNostalgia(_ v: Float) {
+        shadowNostalgia = clamp(v, 0, 1)
+        publishParams()
+    }
+
     /// Queue a new generated scene (key/progression/voicing/melody motif,
     /// see `PatternGenerator.randomScene`). Picked up by the render thread
     /// and applied at the next bar boundary (see `SceneSequencer`).
@@ -323,6 +348,7 @@ final class LiminalDSPCore: @unchecked Sendable {
         smSpeed.setTarget(snapshot.speed)
         smColor.setTarget(snapshot.color)
         smBassColor.setTarget(snapshot.bassColor)
+        smNostalgia.setTarget(snapshot.nostalgia)
         pendingDrumsEnabledForTempo = snapshot.drumsEnabled
 
         let arpRef = arpBox.read()
@@ -371,6 +397,7 @@ final class LiminalDSPCore: @unchecked Sendable {
             let age = smAge.next()
             let drumGain = smDrumGain.next()
             let bassGain = smBassGain.next()
+            let nostalgia = smNostalgia.next()
             _ = smSpace.next()
             _ = smColor.next()
             _ = smBassColor.next()
@@ -391,11 +418,23 @@ final class LiminalDSPCore: @unchecked Sendable {
             let breathPhase = Float(clamp(
                 (Double(elapsedSamples) - Double(breathBarStartSample)) / max(1, breathBarLengthSamples), 0, 1))
             let breathGain = breathingGainLinear(phase: breathPhase, depthDB: Self.breathingDepthDB)
-            let padBassL = (padL + bassMono) * breathGain
-            let padBassR = (padR + bassMono) * breathGain
+            let padGainedL = padL * breathGain
+            let padGainedR = padR * breathGain
+            let bassGained = bassMono * breathGain
 
-            var left = melL + padBassL + drumMono
-            var right = melR + padBassR + drumMono
+            // SYNTH BUS (pads + melody, both already past their own
+            // per-voice filters) is summed into its own stereo pair and
+            // routed through the Juno-106-style chorus HERE, strictly
+            // before it joins bass/drums below (SPEC.md Addendum 4). Bass
+            // and drums are summed in completely separately and never touch
+            // `junoChorus` -- zero effect on them regardless of `nostalgia`.
+            let synthDryL = melL + padGainedL
+            let synthDryR = melR + padGainedR
+            let (synthWetL, synthWetR) = junoChorus.process(inputL: synthDryL, inputR: synthDryR,
+                                                              nostalgia: nostalgia)
+
+            var left = synthWetL + bassGained + drumMono
+            var right = synthWetR + bassGained + drumMono
 
             left = wowL.process(left, depth: age)
             right = wowR.process(right, depth: age)
@@ -536,6 +575,6 @@ final class LiminalDSPCore: @unchecked Sendable {
                                         drumsEnabled: shadowDrumsEnabled, drumLevel: shadowDrumLevel,
                                         speed: shadowSpeed, color: shadowColor, waveform: shadowWaveform,
                                         bassEnabled: shadowBassEnabled, bassColor: shadowBassColor,
-                                        bassLevel: shadowBassLevel))
+                                        bassLevel: shadowBassLevel, nostalgia: shadowNostalgia))
     }
 }
