@@ -1,0 +1,339 @@
+<!DOCTYPE html><html class="dark" lang="en" style=""><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Liminal Generator</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&amp;family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-container-high": "#2a2a2a",
+                        "on-tertiary-fixed-variant": "#464747",
+                        "on-surface-variant": "#baccb1",
+                        "on-background": "#e5e2e1",
+                        "on-error": "#690005",
+                        "inverse-primary": "#006e06",
+                        "surface-tint": "#00e61b",
+                        "primary-fixed-dim": "#00e61b",
+                        "on-secondary-container": "#500050",
+                        "secondary": "#ffabf3",
+                        "on-tertiary-fixed": "#1a1c1c",
+                        "on-secondary-fixed-variant": "#810081",
+                        "secondary-fixed-dim": "#ffabf3",
+                        "surface-container-highest": "#353534",
+                        "inverse-on-surface": "#313030",
+                        "on-surface": "#e5e2e1",
+                        "on-error-container": "#ffdad6",
+                        "on-secondary": "#5b005b",
+                        "primary-fixed": "#76ff65",
+                        "error-container": "#93000a",
+                        "surface-dim": "#131313",
+                        "inverse-surface": "#e5e2e1",
+                        "surface-container": "#201f1f",
+                        "surface-container-lowest": "#0e0e0e",
+                        "primary": "#eeffe4",
+                        "tertiary-fixed-dim": "#c7c6c6",
+                        "error": "#ffb4ab",
+                        "secondary-fixed": "#ffd7f5",
+                        "secondary-container": "#fe00fe",
+                        "outline": "#85967d",
+                        "on-primary-fixed-variant": "#005303",
+                        "tertiary": "#fbfaf9",
+                        "tertiary-fixed": "#e3e2e2",
+                        "on-primary-fixed": "#002201",
+                        "on-tertiary": "#2f3131",
+                        "outline-variant": "#3c4b36",
+                        "surface-container-low": "#1c1b1b",
+                        "background": "#131313",
+                        "on-secondary-fixed": "#380038",
+                        "surface": "#131313",
+                        "on-primary": "#003a02",
+                        "primary-container": "#33ff33",
+                        "on-tertiary-container": "#606161",
+                        "surface-variant": "#353534",
+                        "surface-bright": "#393939",
+                        "on-primary-container": "#007207",
+                        "tertiary-container": "#dedddd"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "margin-desktop": "40px",
+                        "stack-sm": "8px",
+                        "unit": "4px",
+                        "gutter": "16px",
+                        "margin-mobile": "20px",
+                        "stack-md": "16px",
+                        "stack-lg": "32px"
+                    },
+                    "fontFamily": {
+                        "body-sm": ["Inter"],
+                        "display-vcr": ["Space Mono"],
+                        "headline-lg": ["Space Mono"],
+                        "status-readout": ["Space Mono"],
+                        "headline-lg-mobile": ["Space Mono"],
+                        "label-mono": ["Space Mono"],
+                        "body-md": ["Inter"]
+                    },
+                    "fontSize": {
+                        "body-sm": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "display-vcr": ["32px", { "lineHeight": "1.2", "letterSpacing": "-0.05em", "fontWeight": "700" }],
+                        "headline-lg": ["24px", { "lineHeight": "32px", "fontWeight": "700" }],
+                        "status-readout": ["10px", { "lineHeight": "12px", "fontWeight": "400" }],
+                        "headline-lg-mobile": ["20px", { "lineHeight": "28px", "fontWeight": "700" }],
+                        "label-mono": ["12px", { "lineHeight": "16px", "letterSpacing": "0.1em", "fontWeight": "400" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body {
+            background-color: #000000;
+        }
+        
+        /* Scanline Overlay */
+        .scanlines {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 9999;
+            background: linear-gradient(
+                to bottom,
+                rgba(255, 255, 255, 0),
+                rgba(255, 255, 255, 0) 50%,
+                rgba(0, 0, 0, 0.1) 50%,
+                rgba(0, 0, 0, 0.1)
+            );
+            background-size: 100% 4px;
+            opacity: 0.15;
+        }
+
+        /* CRT Flicker */
+        @keyframes crtFlicker {
+            0% { opacity: 0.95; }
+            5% { opacity: 0.85; }
+            10% { opacity: 0.95; }
+            100% { opacity: 1; }
+        }
+        .crt-effect {
+            animation: crtFlicker 0.15s infinite;
+        }
+
+        /* Glitch effect on hover for certain elements */
+        .glitch-hover:hover {
+            text-shadow: 2px 0 #ff0000, -2px 0 #00ffff;
+            animation: glitch 0.3s cubic-bezier(.25, .46, .45, .94) both infinite;
+        }
+
+        @keyframes glitch {
+            0% { transform: translate(0) }
+            20% { transform: translate(-2px, 1px) }
+            40% { transform: translate(-1px, -1px) }
+            60% { transform: translate(2px, 1px) }
+            80% { transform: translate(1px, -1px) }
+            100% { transform: translate(0) }
+        }
+
+        /* Tape Deck Button */
+        .deck-btn {
+            border-bottom: 2px solid #2a2a2a;
+            transition: all 0.1s ease;
+        }
+        .deck-btn:active {
+            border-bottom: 0px solid transparent;
+            transform: translateY(2px);
+        }
+
+        /* Analog Slider overrides */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 24px;
+            width: 12px;
+            background: #00e61b;
+            cursor: pointer;
+            border-radius: 0;
+            border: 1px solid #131313;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #2a2a2a;
+            border-radius: 0;
+        }
+        
+        .blinking-cursor {
+            animation: blinker 1s linear infinite;
+        }
+        @keyframes blinker {
+            50% { opacity: 0; }
+        }
+
+        /* Hide scrollbar for swiping */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+        }
+    </style>
+</head>
+<body class="text-on-surface bg-background h-screen flex flex-col font-body-md crt-effect relative overflow-hidden">
+<div class="scanlines"></div>
+<!-- TopAppBar -->
+<header class="flex justify-between items-center w-full px-margin-mobile py-stack-md border-b border-outline-variant bg-background shrink-0 z-10 docked full-width top-0">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-2xl glitch-hover" data-icon="blur_on">blur_on</span>
+<h1 class="font-display-vcr text-headline-lg-mobile text-primary tracking-tighter uppercase">Liminal Generator</h1>
+</div>
+<button class="text-on-surface-variant hover:text-primary-fixed-dim transition-colors duration-300 active:opacity-70 active:scale-95">
+<span class="material-symbols-outlined glitch-hover" data-icon="settings">settings</span>
+</button>
+</header>
+<!-- Main Canvas -->
+<main class="flex-1 overflow-y-auto px-margin-mobile py-stack-lg flex flex-col gap-stack-lg">
+<!-- Image Card (VCR Static) -->
+<section class="relative w-full aspect-[4/5] bg-surface-container-low border border-outline-variant overflow-hidden flex-shrink-0 group">
+<div class="absolute inset-0 bg-[url('https://lh3.googleusercontent.com/aida-public/AB6AXuAK2HDmVQRjzVVJtRsmG1nettx0CqswsxFH01Ixgfgynp9P321kNQgBBVbwrXMnjElXiVT8f-vsZzGA-t8fv8DMhRSsJaz71JKiYHrb7ppD2nMg4EDrAkw0jPBWNzh6rmLqeUDZbuEqZcNqLJRmepoa_1s9-q4SCghvLScxmf7safxeulzJOnAtDV40KYn6DfshiCLVPUHuS2ORm1gJAXlkjzb-DIrOGm_D9rWNZC2u5lDz8la-4Blr')] bg-cover bg-center mix-blend-luminosity opacity-80 filter contrast-125 sepia-[.2]" style="background-image: url(&quot;https://lh3.googleusercontent.com/aida-public/AB6AXuCn2UI_NhNwxRDdayxguO9GFDEM7KmVhmL6lTMnqHsmg8qPefujtLYXFuemnFN8FdlQT1B5ROmjY6sO9JqVZhDvgk0GqHY9UILI1QJq31jscQM65lL0bPYk6qBh3A2Wtl8qLCj4WcERz9Kvk_z9Rfp4ZytpbCAuUKqY-B0onHgjfeI41a0mU3C9t6zOxwYmi5YSiH_gjm9Z_QWNG4p43fjjUPtLYOYvILF7XdwcTYTmiaookRvPvP5C&quot;);"></div>
+<!-- VCR Overlays -->
+<div class="absolute top-4 left-4 flex items-center gap-2 z-10">
+<div class="w-3 h-3 rounded-full bg-error animate-pulse"></div>
+<span class="font-label-mono text-label-mono text-error uppercase">REC</span>
+</div>
+<div class="absolute top-4 right-4 z-10">
+<span class="font-status-readout text-status-readout text-primary"><span class="blinking-cursor">_</span>SP</span>
+</div>
+<div class="absolute bottom-4 left-4 z-10">
+<span class="font-display-vcr text-headline-lg-mobile text-primary drop-shadow-md">PLAY <span class="material-symbols-outlined align-middle" data-weight="fill" style="font-variation-settings: 'FILL' 1;">play_arrow</span></span>
+</div>
+<!-- Swipe indicators -->
+<div class="absolute inset-y-0 left-2 flex items-center opacity-0 group-hover:opacity-100 transition-opacity z-10">
+<span class="material-symbols-outlined text-on-surface-variant text-3xl">chevron_left</span>
+</div>
+<div class="absolute inset-y-0 right-2 flex items-center opacity-0 group-hover:opacity-100 transition-opacity z-10">
+<span class="material-symbols-outlined text-on-surface-variant text-3xl">chevron_right</span>
+</div>
+</section>
+<!-- SYNTH Section -->
+<section class="flex flex-col gap-stack-sm border border-outline-variant p-stack-md bg-surface-container relative">
+<div class="absolute -top-3 left-4 bg-background px-2">
+<span class="font-label-mono text-label-mono text-on-surface-variant uppercase tracking-widest">SYNTH</span>
+</div>
+<button class="deck-btn w-full bg-surface-container-highest border-outline text-primary py-stack-md flex justify-center items-center gap-2 hover:bg-surface-bright transition-colors">
+<span class="material-symbols-outlined" data-icon="casino">casino</span>
+<span class="font-label-mono text-label-mono uppercase font-bold tracking-widest">Generate MELODY</span>
+</button>
+<div class="flex justify-between items-center mt-2 px-1">
+<span class="font-status-readout text-status-readout text-on-surface-variant">SEQ: <span class="text-primary">A-C-E-G</span></span>
+<span class="font-status-readout text-status-readout text-on-surface-variant">BPM: 110</span>
+</div>
+</section>
+<!-- Global Sliders -->
+<section class="flex flex-col gap-stack-md border border-outline-variant p-stack-md bg-surface-container relative">
+<div class="absolute -top-3 left-4 bg-background px-2">
+<span class="font-label-mono text-label-mono text-on-surface-variant uppercase tracking-widest">GLOBAL ENV</span>
+</div>
+<div class="flex flex-col gap-1">
+<div class="flex justify-between items-end">
+<label class="font-label-mono text-label-mono text-primary uppercase" for="slider-space">SPACE</label>
+<span class="font-status-readout text-status-readout text-on-surface-variant">REV_DECAY</span>
+</div>
+<div class="flex items-center gap-4">
+<span class="font-status-readout text-status-readout text-on-surface-variant w-4">0</span>
+<input class="flex-1" id="slider-space" max="100" min="0" type="range" value="75">
+<span class="font-status-readout text-status-readout text-on-surface-variant w-4">10</span>
+</div>
+</div>
+<div class="flex flex-col gap-1">
+<div class="flex justify-between items-end">
+<label class="font-label-mono text-label-mono text-primary uppercase" for="slider-age">AGE</label>
+<span class="font-status-readout text-status-readout text-on-surface-variant">WOW_FLUTTER</span>
+</div>
+<div class="flex items-center gap-4">
+<span class="font-status-readout text-status-readout text-on-surface-variant w-4">0</span>
+<input class="flex-1" id="slider-age" max="100" min="0" type="range" value="88">
+<span class="font-status-readout text-status-readout text-on-surface-variant w-4">10</span>
+</div>
+</div>
+</section>
+<!-- DRUMS Section -->
+<section class="flex flex-col gap-stack-md border border-outline-variant p-stack-md bg-surface-container relative">
+<div class="absolute -top-3 left-4 bg-background px-2">
+<span class="font-label-mono text-label-mono text-on-surface-variant uppercase tracking-widest">DRUMS</span>
+</div>
+<div class="flex justify-between items-center border-b border-surface-container-highest pb-stack-sm mb-stack-sm">
+<span class="font-label-mono text-label-mono text-on-surface uppercase">ENABLE TR-808</span>
+<!-- Toggle Switch -->
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" id="drums-toggle" type="checkbox">
+<div class="w-11 h-6 bg-surface-container-highest border border-outline-variant peer-focus:outline-none rounded-none peer peer-checked:after:translate-x-full peer-checked:after:border-background after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-on-surface-variant after:border-outline-variant after:border after:h-5 after:w-5 after:transition-all peer-checked:after:bg-primary peer-checked:border-primary"></div>
+</label>
+</div>
+<div class="flex flex-col gap-stack-sm transition-opacity duration-300" id="drums-controls">
+<div class="flex flex-col gap-1">
+<div class="flex justify-between items-end">
+<label class="font-label-mono text-label-mono text-primary uppercase" for="slider-drum-lvl">LEVEL</label>
+</div>
+<div class="flex items-center gap-4">
+<span class="font-status-readout text-status-readout text-on-surface-variant w-4">-INF</span>
+<input class="flex-1" id="slider-drum-lvl" max="100" min="0" type="range" value="60">
+<span class="font-status-readout text-status-readout text-on-surface-variant w-4">+6dB</span>
+</div>
+</div>
+<button class="deck-btn w-full bg-surface-container-highest border-outline text-primary py-stack-md mt-2 flex justify-center items-center gap-2 hover:bg-surface-bright transition-colors">
+<span class="material-symbols-outlined" data-icon="casino">casino</span>
+<span class="font-label-mono text-label-mono uppercase font-bold tracking-widest">Generate Beat</span>
+</button>
+</div>
+</section>
+<!-- Spacer for bottom nav -->
+<div class="h-24 shrink-0"></div>
+</main>
+<!-- Bottom Actions / Nav -->
+<div class="fixed bottom-0 left-0 w-full z-50 flex flex-col px-margin-mobile pb-margin-mobile pt-stack-sm bg-gradient-to-t from-background via-background to-transparent pointer-events-none">
+<!-- Render Button -->
+<button class="deck-btn w-full bg-error-container border-error text-on-error-container py-stack-md flex justify-center items-center gap-2 hover:bg-error transition-colors pointer-events-auto">
+<span class="material-symbols-outlined" data-icon="fiber_manual_record" data-weight="fill" style="font-variation-settings: 'FILL' 1;">fiber_manual_record</span>
+<span class="font-display-vcr text-headline-lg-mobile uppercase tracking-tighter">RENDER &amp; SHARE</span>
+</button>
+</div>
+<!-- Script for basic interactions -->
+<script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const drumsToggle = document.getElementById('drums-toggle');
+            const drumsControls = document.getElementById('drums-controls');
+
+            drumsToggle.addEventListener('change', (e) => {
+                if(e.target.checked) {
+                    drumsControls.style.opacity = '1';
+                    drumsControls.style.pointerEvents = 'auto';
+                } else {
+                    drumsControls.style.opacity = '0.3';
+                    drumsControls.style.pointerEvents = 'none';
+                }
+            });
+        });
+    </script>
+
+
+</body></html>

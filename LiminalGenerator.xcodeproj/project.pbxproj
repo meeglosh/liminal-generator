@@ -1,0 +1,587 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		2B998A0E17C5796A72C3EFDD /* AutoRenderBootstrap.c in Sources */ = {isa = PBXBuildFile; fileRef = 822B1260CF76A08E510743AE /* AutoRenderBootstrap.c */; };
+		2D1002C9CA6A8DACA9B1C078 /* ArpeggioSequencer.swift in Sources */ = {isa = PBXBuildFile; fileRef = D70842CAD0063FDBCE1CFD36 /* ArpeggioSequencer.swift */; };
+		2D6EF04FF881CAC79628195C /* RenderScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBB9058C5EF94A168BEECBC4 /* RenderScreen.swift */; };
+		3EA675B02F873BCA73AB8BF1 /* DrumMachine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 059DF5ECBFA0435BDFF8C96B /* DrumMachine.swift */; };
+		4351A1FE6FECA6169BD13FA1 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C805D5994D5C0DF3AB7A6A1C /* Assets.xcassets */; };
+		447A5299411CD3434591FEC5 /* SynthVoice.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3DB40B4A997464FA14237CFB /* SynthVoice.swift */; };
+		4C6087F3CF0096738701AAD4 /* VHSShader.metal in Sources */ = {isa = PBXBuildFile; fileRef = D039DBB9E7D16738DAA1F974 /* VHSShader.metal */; };
+		4D7CB339038541CA48445282 /* AboutSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38B18B531C87BA506A5B1D5F /* AboutSheet.swift */; };
+		4FE2BC9B1F8C8B79F4BB2EB3 /* MainView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F06BFE93A0D31A4F0EA3A4D /* MainView.swift */; };
+		50E937BE2E69397D40769BE5 /* WowFlutterProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = AEEFFE8CF57B65D8550A46DC /* WowFlutterProcessor.swift */; };
+		574DD6475E7E50521F148D4D /* LiminalGeneratorFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1CB1680ACDFF673331D8A4D /* LiminalGeneratorFlowTests.swift */; };
+		58DF960743D17DD58CB6D970 /* SpaceMono-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 7D54B44606A4BF0318936463 /* SpaceMono-Regular.ttf */; };
+		5C54E7F99312A4A1C26292CB /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = E59A6E5E775C47F05D85F34E /* Theme.swift */; };
+		6C2530E6C096E2ED6B29581E /* LiminalGeneratorApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0269FEDD1413341EDEE16259 /* LiminalGeneratorApp.swift */; };
+		7A297D86E1EC6482004BC1BD /* VHSTimestamp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E94A99E1BEDC453633F67AFB /* VHSTimestamp.swift */; };
+		85387023CB44EDBC26E63B9B /* SpaceMono-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 2E504EACDDA8C7BDB9D758CA /* SpaceMono-Bold.ttf */; };
+		91239B908B58F03208350472 /* PatternGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 432BF7B43408DCB96DE28154 /* PatternGenerator.swift */; };
+		965AB1B7601EC81EDEA7FF3D /* DSPMath.swift in Sources */ = {isa = PBXBuildFile; fileRef = C306B45D3A52C1C683288F17 /* DSPMath.swift */; };
+		98CA3D3038A19E7437C15209 /* AutoRenderDebugHarness.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EEFAAE4EB8C66506C0B047E /* AutoRenderDebugHarness.swift */; };
+		98CE7BB2B92A39A954141F19 /* VHSFrameCompositor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32EB3387454CE5A73E01191B /* VHSFrameCompositor.swift */; };
+		9C623EAB55FC935471BF9F27 /* SplashView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D02F63B723542C64FBA5CAF /* SplashView.swift */; };
+		B0A262DE925A3BD1E67338F7 /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE6218B657A6195E2D2774BA /* Components.swift */; };
+		C2759AF789C59FF9F82DFA31 /* ImageLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3DE0A4BEBBBDDA25E2234B4A /* ImageLibrary.swift */; };
+		D82EC4EF3C49B98D4A82334F /* ClipRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA1EB060083888CB23AB2115 /* ClipRenderer.swift */; };
+		DD66E4587BE1E13944549125 /* LiminalDSPCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 226F2045D6B6C873CE9CE85B /* LiminalDSPCore.swift */; };
+		DDA25AF89DD0960B76F4CCC7 /* VHSImageCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5B65A73A317D975050875AF /* VHSImageCard.swift */; };
+		DE7046B8FC97CEC478B4311C /* OFL.txt in Resources */ = {isa = PBXBuildFile; fileRef = 0D5BA78DF6D3CACE0AA62729 /* OFL.txt */; };
+		E136F5DF6C23CD40832C5CCB /* TapeHiss.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03D609D0245CA89227517C22 /* TapeHiss.swift */; };
+		E3BD91E62D5DD663C1B0FA97 /* ParameterBus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 029D03F40D7046E1C4C64EC7 /* ParameterBus.swift */; };
+		E42845A82080E65B38F2E7B2 /* AudioEngineController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A99DEDE49CE908578E16081A /* AudioEngineController.swift */; };
+		FDA12998A21D88173E5E5408 /* ShareSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F4621AA0D516F218F0ADBD0 /* ShareSheet.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		57A16500F7735F27BC3B68D3 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 0DD10616FE8FD3967DB76121 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 3C248A99AB91B62B6CAAD252;
+			remoteInfo = "Liminal Generator";
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		0269FEDD1413341EDEE16259 /* LiminalGeneratorApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiminalGeneratorApp.swift; sourceTree = "<group>"; };
+		029D03F40D7046E1C4C64EC7 /* ParameterBus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParameterBus.swift; sourceTree = "<group>"; };
+		03D609D0245CA89227517C22 /* TapeHiss.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TapeHiss.swift; sourceTree = "<group>"; };
+		059DF5ECBFA0435BDFF8C96B /* DrumMachine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrumMachine.swift; sourceTree = "<group>"; };
+		0D5BA78DF6D3CACE0AA62729 /* OFL.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = OFL.txt; sourceTree = "<group>"; };
+		0F4621AA0D516F218F0ADBD0 /* ShareSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareSheet.swift; sourceTree = "<group>"; };
+		13C75290CFC62062A49EE600 /* LiminalGeneratorUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = LiminalGeneratorUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		226F2045D6B6C873CE9CE85B /* LiminalDSPCore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiminalDSPCore.swift; sourceTree = "<group>"; };
+		2AA2B6256E40D1FD955493A9 /* Liminal Generator.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = "Liminal Generator.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		2E504EACDDA8C7BDB9D758CA /* SpaceMono-Bold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "SpaceMono-Bold.ttf"; sourceTree = "<group>"; };
+		32EB3387454CE5A73E01191B /* VHSFrameCompositor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VHSFrameCompositor.swift; sourceTree = "<group>"; };
+		38B18B531C87BA506A5B1D5F /* AboutSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutSheet.swift; sourceTree = "<group>"; };
+		3D02F63B723542C64FBA5CAF /* SplashView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplashView.swift; sourceTree = "<group>"; };
+		3DB40B4A997464FA14237CFB /* SynthVoice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SynthVoice.swift; sourceTree = "<group>"; };
+		3DE0A4BEBBBDDA25E2234B4A /* ImageLibrary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageLibrary.swift; sourceTree = "<group>"; };
+		3EEFAAE4EB8C66506C0B047E /* AutoRenderDebugHarness.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutoRenderDebugHarness.swift; sourceTree = "<group>"; };
+		432BF7B43408DCB96DE28154 /* PatternGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PatternGenerator.swift; sourceTree = "<group>"; };
+		4F06BFE93A0D31A4F0EA3A4D /* MainView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainView.swift; sourceTree = "<group>"; };
+		7D54B44606A4BF0318936463 /* SpaceMono-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "SpaceMono-Regular.ttf"; sourceTree = "<group>"; };
+		822B1260CF76A08E510743AE /* AutoRenderBootstrap.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = AutoRenderBootstrap.c; sourceTree = "<group>"; };
+		A99DEDE49CE908578E16081A /* AudioEngineController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioEngineController.swift; sourceTree = "<group>"; };
+		AEEFFE8CF57B65D8550A46DC /* WowFlutterProcessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WowFlutterProcessor.swift; sourceTree = "<group>"; };
+		C306B45D3A52C1C683288F17 /* DSPMath.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSPMath.swift; sourceTree = "<group>"; };
+		C5B65A73A317D975050875AF /* VHSImageCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VHSImageCard.swift; sourceTree = "<group>"; };
+		C805D5994D5C0DF3AB7A6A1C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		CBB9058C5EF94A168BEECBC4 /* RenderScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RenderScreen.swift; sourceTree = "<group>"; };
+		D039DBB9E7D16738DAA1F974 /* VHSShader.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = VHSShader.metal; sourceTree = "<group>"; };
+		D1CB1680ACDFF673331D8A4D /* LiminalGeneratorFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiminalGeneratorFlowTests.swift; sourceTree = "<group>"; };
+		D70842CAD0063FDBCE1CFD36 /* ArpeggioSequencer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArpeggioSequencer.swift; sourceTree = "<group>"; };
+		DE6218B657A6195E2D2774BA /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
+		E59A6E5E775C47F05D85F34E /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+		E94A99E1BEDC453633F67AFB /* VHSTimestamp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VHSTimestamp.swift; sourceTree = "<group>"; };
+		FA1EB060083888CB23AB2115 /* ClipRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipRenderer.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		02389E3E17E94B33742EC56B /* LiminalGenerator */ = {
+			isa = PBXGroup;
+			children = (
+				B11E5C30560CC809066E90EC /* App */,
+				430139C4121526DF2C7E0998 /* Audio */,
+				D2AAE1233F7CE2AB41732541 /* Render */,
+				9ECF1CC563E56CDF52BC76CC /* Resources */,
+				708379FC0AEF183FDF1F6C01 /* UI */,
+			);
+			path = LiminalGenerator;
+			sourceTree = "<group>";
+		};
+		430139C4121526DF2C7E0998 /* Audio */ = {
+			isa = PBXGroup;
+			children = (
+				D70842CAD0063FDBCE1CFD36 /* ArpeggioSequencer.swift */,
+				A99DEDE49CE908578E16081A /* AudioEngineController.swift */,
+				059DF5ECBFA0435BDFF8C96B /* DrumMachine.swift */,
+				C306B45D3A52C1C683288F17 /* DSPMath.swift */,
+				226F2045D6B6C873CE9CE85B /* LiminalDSPCore.swift */,
+				029D03F40D7046E1C4C64EC7 /* ParameterBus.swift */,
+				432BF7B43408DCB96DE28154 /* PatternGenerator.swift */,
+				3DB40B4A997464FA14237CFB /* SynthVoice.swift */,
+				03D609D0245CA89227517C22 /* TapeHiss.swift */,
+				AEEFFE8CF57B65D8550A46DC /* WowFlutterProcessor.swift */,
+			);
+			path = Audio;
+			sourceTree = "<group>";
+		};
+		45F7F7E881837AF32009D5C4 /* Fonts */ = {
+			isa = PBXGroup;
+			children = (
+				0D5BA78DF6D3CACE0AA62729 /* OFL.txt */,
+				2E504EACDDA8C7BDB9D758CA /* SpaceMono-Bold.ttf */,
+				7D54B44606A4BF0318936463 /* SpaceMono-Regular.ttf */,
+			);
+			path = Fonts;
+			sourceTree = "<group>";
+		};
+		708379FC0AEF183FDF1F6C01 /* UI */ = {
+			isa = PBXGroup;
+			children = (
+				38B18B531C87BA506A5B1D5F /* AboutSheet.swift */,
+				DE6218B657A6195E2D2774BA /* Components.swift */,
+				4F06BFE93A0D31A4F0EA3A4D /* MainView.swift */,
+				3D02F63B723542C64FBA5CAF /* SplashView.swift */,
+				C5B65A73A317D975050875AF /* VHSImageCard.swift */,
+				D039DBB9E7D16738DAA1F974 /* VHSShader.metal */,
+				E94A99E1BEDC453633F67AFB /* VHSTimestamp.swift */,
+			);
+			path = UI;
+			sourceTree = "<group>";
+		};
+		9ECF1CC563E56CDF52BC76CC /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				C805D5994D5C0DF3AB7A6A1C /* Assets.xcassets */,
+				3DE0A4BEBBBDDA25E2234B4A /* ImageLibrary.swift */,
+				45F7F7E881837AF32009D5C4 /* Fonts */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		A689228FC1BD17266E27EC02 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				2AA2B6256E40D1FD955493A9 /* Liminal Generator.app */,
+				13C75290CFC62062A49EE600 /* LiminalGeneratorUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		B11E5C30560CC809066E90EC /* App */ = {
+			isa = PBXGroup;
+			children = (
+				0269FEDD1413341EDEE16259 /* LiminalGeneratorApp.swift */,
+				E59A6E5E775C47F05D85F34E /* Theme.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		D2AAE1233F7CE2AB41732541 /* Render */ = {
+			isa = PBXGroup;
+			children = (
+				822B1260CF76A08E510743AE /* AutoRenderBootstrap.c */,
+				3EEFAAE4EB8C66506C0B047E /* AutoRenderDebugHarness.swift */,
+				FA1EB060083888CB23AB2115 /* ClipRenderer.swift */,
+				CBB9058C5EF94A168BEECBC4 /* RenderScreen.swift */,
+				0F4621AA0D516F218F0ADBD0 /* ShareSheet.swift */,
+				32EB3387454CE5A73E01191B /* VHSFrameCompositor.swift */,
+			);
+			path = Render;
+			sourceTree = "<group>";
+		};
+		DFA9863DE683270C48DD3E8B = {
+			isa = PBXGroup;
+			children = (
+				02389E3E17E94B33742EC56B /* LiminalGenerator */,
+				EEF83DDF30A26AFE66B92EDA /* LiminalGeneratorUITests */,
+				A689228FC1BD17266E27EC02 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		EEF83DDF30A26AFE66B92EDA /* LiminalGeneratorUITests */ = {
+			isa = PBXGroup;
+			children = (
+				D1CB1680ACDFF673331D8A4D /* LiminalGeneratorFlowTests.swift */,
+			);
+			path = LiminalGeneratorUITests;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		3C248A99AB91B62B6CAAD252 /* Liminal Generator */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = ADF0ED9E5751CD2722A1D8BF /* Build configuration list for PBXNativeTarget "Liminal Generator" */;
+			buildPhases = (
+				478300F6D8AEC7E58D211E38 /* Sources */,
+				B5E2CBF0A95A92D4AA3288C1 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "Liminal Generator";
+			packageProductDependencies = (
+			);
+			productName = "Liminal Generator";
+			productReference = 2AA2B6256E40D1FD955493A9 /* Liminal Generator.app */;
+			productType = "com.apple.product-type.application";
+		};
+		C4691868A51111A1069632E5 /* LiminalGeneratorUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1B19FEA3D9693B21E9A53272 /* Build configuration list for PBXNativeTarget "LiminalGeneratorUITests" */;
+			buildPhases = (
+				BBFD9533C754ECCF78F445C1 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				F7D05D42D61FC483E8E610D8 /* PBXTargetDependency */,
+			);
+			name = LiminalGeneratorUITests;
+			packageProductDependencies = (
+			);
+			productName = LiminalGeneratorUITests;
+			productReference = 13C75290CFC62062A49EE600 /* LiminalGeneratorUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		0DD10616FE8FD3967DB76121 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					3C248A99AB91B62B6CAAD252 = {
+						DevelopmentTeam = XM2SC5YZ8C;
+						ProvisioningStyle = Automatic;
+					};
+					C4691868A51111A1069632E5 = {
+						DevelopmentTeam = XM2SC5YZ8C;
+						ProvisioningStyle = Automatic;
+						TestTargetID = 3C248A99AB91B62B6CAAD252;
+					};
+				};
+			};
+			buildConfigurationList = 9BE464E1E8E49DA8775D1879 /* Build configuration list for PBXProject "LiminalGenerator" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = DFA9863DE683270C48DD3E8B;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = A689228FC1BD17266E27EC02 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				3C248A99AB91B62B6CAAD252 /* Liminal Generator */,
+				C4691868A51111A1069632E5 /* LiminalGeneratorUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		B5E2CBF0A95A92D4AA3288C1 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4351A1FE6FECA6169BD13FA1 /* Assets.xcassets in Resources */,
+				DE7046B8FC97CEC478B4311C /* OFL.txt in Resources */,
+				85387023CB44EDBC26E63B9B /* SpaceMono-Bold.ttf in Resources */,
+				58DF960743D17DD58CB6D970 /* SpaceMono-Regular.ttf in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		478300F6D8AEC7E58D211E38 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4D7CB339038541CA48445282 /* AboutSheet.swift in Sources */,
+				2D1002C9CA6A8DACA9B1C078 /* ArpeggioSequencer.swift in Sources */,
+				E42845A82080E65B38F2E7B2 /* AudioEngineController.swift in Sources */,
+				2B998A0E17C5796A72C3EFDD /* AutoRenderBootstrap.c in Sources */,
+				98CA3D3038A19E7437C15209 /* AutoRenderDebugHarness.swift in Sources */,
+				D82EC4EF3C49B98D4A82334F /* ClipRenderer.swift in Sources */,
+				B0A262DE925A3BD1E67338F7 /* Components.swift in Sources */,
+				965AB1B7601EC81EDEA7FF3D /* DSPMath.swift in Sources */,
+				3EA675B02F873BCA73AB8BF1 /* DrumMachine.swift in Sources */,
+				C2759AF789C59FF9F82DFA31 /* ImageLibrary.swift in Sources */,
+				DD66E4587BE1E13944549125 /* LiminalDSPCore.swift in Sources */,
+				6C2530E6C096E2ED6B29581E /* LiminalGeneratorApp.swift in Sources */,
+				4FE2BC9B1F8C8B79F4BB2EB3 /* MainView.swift in Sources */,
+				E3BD91E62D5DD663C1B0FA97 /* ParameterBus.swift in Sources */,
+				91239B908B58F03208350472 /* PatternGenerator.swift in Sources */,
+				2D6EF04FF881CAC79628195C /* RenderScreen.swift in Sources */,
+				FDA12998A21D88173E5E5408 /* ShareSheet.swift in Sources */,
+				9C623EAB55FC935471BF9F27 /* SplashView.swift in Sources */,
+				447A5299411CD3434591FEC5 /* SynthVoice.swift in Sources */,
+				E136F5DF6C23CD40832C5CCB /* TapeHiss.swift in Sources */,
+				5C54E7F99312A4A1C26292CB /* Theme.swift in Sources */,
+				98CE7BB2B92A39A954141F19 /* VHSFrameCompositor.swift in Sources */,
+				DDA25AF89DD0960B76F4CCC7 /* VHSImageCard.swift in Sources */,
+				4C6087F3CF0096738701AAD4 /* VHSShader.metal in Sources */,
+				7A297D86E1EC6482004BC1BD /* VHSTimestamp.swift in Sources */,
+				50E937BE2E69397D40769BE5 /* WowFlutterProcessor.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BBFD9533C754ECCF78F445C1 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				574DD6475E7E50521F148D4D /* LiminalGeneratorFlowTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		F7D05D42D61FC483E8E610D8 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 3C248A99AB91B62B6CAAD252 /* Liminal Generator */;
+			targetProxy = 57A16500F7735F27BC3B68D3 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		289D5DB4373BAF2EC604F4AD /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = XM2SC5YZ8C;
+				ENABLE_PREVIEWS = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		3FC91675A0AB163B408F7834 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = LiminalGenerator/App/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.gapco.LiminalGenerator;
+				PRODUCT_NAME = "Liminal Generator";
+				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		746270C960623CD301F44BEB /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = LiminalGenerator/App/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.gapco.LiminalGenerator;
+				PRODUCT_NAME = "Liminal Generator";
+				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		81DC8C25BDCE5EBFFD33F594 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = XM2SC5YZ8C;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_PREVIEWS = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		90D1D7398ECB2D4A116DB736 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.gapco.LiminalGeneratorUITests;
+				PRODUCT_NAME = LiminalGeneratorUITests;
+				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_TARGET_NAME = "Liminal Generator";
+			};
+			name = Release;
+		};
+		DFF122677567B464676C24F5 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.gapco.LiminalGeneratorUITests;
+				PRODUCT_NAME = LiminalGeneratorUITests;
+				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_TARGET_NAME = "Liminal Generator";
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		1B19FEA3D9693B21E9A53272 /* Build configuration list for PBXNativeTarget "LiminalGeneratorUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				DFF122677567B464676C24F5 /* Debug */,
+				90D1D7398ECB2D4A116DB736 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		9BE464E1E8E49DA8775D1879 /* Build configuration list for PBXProject "LiminalGenerator" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				289D5DB4373BAF2EC604F4AD /* Debug */,
+				81DC8C25BDCE5EBFFD33F594 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		ADF0ED9E5751CD2722A1D8BF /* Build configuration list for PBXNativeTarget "Liminal Generator" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				746270C960623CD301F44BEB /* Debug */,
+				3FC91675A0AB163B408F7834 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 0DD10616FE8FD3967DB76121 /* Project object */;
+}

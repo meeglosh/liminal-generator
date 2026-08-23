@@ -1,0 +1,15 @@
+# macOS
+.DS_Store
+
+# Xcode
+xcuserdata/
+DerivedData/
+*.xcresult
+build/
+
+# Secrets — never commit signing keys or ASC API keys
+*.p8
+*.p12
+*.mobileprovision
+*.certSigningRequest
+asc_key.json

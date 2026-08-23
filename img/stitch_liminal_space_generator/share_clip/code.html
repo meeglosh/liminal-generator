@@ -1,0 +1,307 @@
+<!DOCTYPE html><html class="dark" lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Liminal Generator - Render</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&amp;family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-container-high": "#2a2a2a",
+                        "on-tertiary-fixed-variant": "#464747",
+                        "on-surface-variant": "#baccb1",
+                        "on-background": "#e5e2e1",
+                        "on-error": "#690005",
+                        "inverse-primary": "#006e06",
+                        "surface-tint": "#00e61b",
+                        "primary-fixed-dim": "#00e61b",
+                        "on-secondary-container": "#500050",
+                        "secondary": "#ffabf3",
+                        "on-tertiary-fixed": "#1a1c1c",
+                        "on-secondary-fixed-variant": "#810081",
+                        "secondary-fixed-dim": "#ffabf3",
+                        "surface-container-highest": "#353534",
+                        "inverse-on-surface": "#313030",
+                        "on-surface": "#e5e2e1",
+                        "on-error-container": "#ffdad6",
+                        "on-secondary": "#5b005b",
+                        "primary-fixed": "#76ff65",
+                        "error-container": "#93000a",
+                        "surface-dim": "#131313",
+                        "inverse-surface": "#e5e2e1",
+                        "surface-container": "#201f1f",
+                        "surface-container-lowest": "#0e0e0e",
+                        "primary": "#eeffe4",
+                        "tertiary-fixed-dim": "#c7c6c6",
+                        "error": "#ffb4ab",
+                        "secondary-fixed": "#ffd7f5",
+                        "secondary-container": "#fe00fe",
+                        "outline": "#85967d",
+                        "on-primary-fixed-variant": "#005303",
+                        "tertiary": "#fbfaf9",
+                        "tertiary-fixed": "#e3e2e2",
+                        "on-primary-fixed": "#002201",
+                        "on-tertiary": "#2f3131",
+                        "outline-variant": "#3c4b36",
+                        "surface-container-low": "#1c1b1b",
+                        "background": "#131313",
+                        "on-secondary-fixed": "#380038",
+                        "surface": "#131313",
+                        "on-primary": "#003a02",
+                        "primary-container": "#33ff33",
+                        "on-tertiary-container": "#606161",
+                        "surface-variant": "#353534",
+                        "surface-bright": "#393939",
+                        "on-primary-container": "#007207",
+                        "tertiary-container": "#dedddd"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "margin-desktop": "40px",
+                        "stack-sm": "8px",
+                        "unit": "4px",
+                        "gutter": "16px",
+                        "margin-mobile": "20px",
+                        "stack-md": "16px",
+                        "stack-lg": "32px"
+                    },
+                    "fontFamily": {
+                        "body-sm": ["Inter"],
+                        "display-vcr": ["Space Mono"],
+                        "headline-lg": ["Space Mono"],
+                        "status-readout": ["Space Mono"],
+                        "headline-lg-mobile": ["Space Mono"],
+                        "label-mono": ["Space Mono"],
+                        "body-md": ["Inter"]
+                    },
+                    "fontSize": {
+                        "body-sm": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "display-vcr": ["32px", { "lineHeight": "1.2", "letterSpacing": "-0.05em", "fontWeight": "700" }],
+                        "headline-lg": ["24px", { "lineHeight": "32px", "fontWeight": "700" }],
+                        "status-readout": ["10px", { "lineHeight": "12px", "fontWeight": "400" }],
+                        "headline-lg-mobile": ["20px", { "lineHeight": "28px", "fontWeight": "700" }],
+                        "label-mono": ["12px", { "lineHeight": "16px", "letterSpacing": "0.1em", "fontWeight": "400" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body {
+            background-color: theme('colors.background');
+            color: theme('colors.on-background');
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* CRT Overlay effect */
+        body::before {
+            content: " ";
+            display: block;
+            position: fixed;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            z-index: 9999;
+            background-size: 100% 2px, 3px 100%;
+            pointer-events: none;
+            opacity: 0.6;
+        }
+
+        /* Glitch Animation for text */
+        @keyframes glitch {
+            0% {
+                text-shadow: 0.05em 0 0 rgba(255, 0, 0, 0.75), -0.05em -0.025em 0 rgba(0, 255, 0, 0.75), -0.025em 0.05em 0 rgba(0, 0, 255, 0.75);
+            }
+            14% {
+                text-shadow: 0.05em 0 0 rgba(255, 0, 0, 0.75), -0.05em -0.025em 0 rgba(0, 255, 0, 0.75), -0.025em 0.05em 0 rgba(0, 0, 255, 0.75);
+            }
+            15% {
+                text-shadow: -0.05em -0.025em 0 rgba(255, 0, 0, 0.75), 0.025em 0.025em 0 rgba(0, 255, 0, 0.75), -0.05em -0.05em 0 rgba(0, 0, 255, 0.75);
+            }
+            49% {
+                text-shadow: -0.05em -0.025em 0 rgba(255, 0, 0, 0.75), 0.025em 0.025em 0 rgba(0, 255, 0, 0.75), -0.05em -0.05em 0 rgba(0, 0, 255, 0.75);
+            }
+            50% {
+                text-shadow: 0.025em 0.05em 0 rgba(255, 0, 0, 0.75), 0.05em 0 0 rgba(0, 255, 0, 0.75), 0 -0.05em 0 rgba(0, 0, 255, 0.75);
+            }
+            99% {
+                text-shadow: 0.025em 0.05em 0 rgba(255, 0, 0, 0.75), 0.05em 0 0 rgba(0, 255, 0, 0.75), 0 -0.05em 0 rgba(0, 0, 255, 0.75);
+            }
+            100% {
+                text-shadow: -0.025em 0 0 rgba(255, 0, 0, 0.75), -0.025em -0.025em 0 rgba(0, 255, 0, 0.75), -0.025em -0.05em 0 rgba(0, 0, 255, 0.75);
+            }
+        }
+        
+        .glitch-text:hover {
+            animation: glitch 1s infinite;
+        }
+
+        /* Tape Deck Button Style */
+        .tape-btn {
+            border-bottom: 2px solid theme('colors.outline-variant');
+            transition: all 0.1s ease;
+        }
+        .tape-btn:active {
+            border-bottom-width: 0px;
+            transform: translateY(2px);
+        }
+
+        /* Blinking Cursor */
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+        .cursor-blink {
+            animation: blink 1s step-end infinite;
+        }
+
+        /* Progress Bar Animation */
+        @keyframes loading-bar {
+            0% { width: 0%; }
+            100% { width: 100%; }
+        }
+        .animate-progress {
+            animation: loading-bar 4s linear forwards;
+        }
+
+        /* Waveform Animation */
+        @keyframes wave {
+            0% { transform: scaleY(0.1); }
+            50% { transform: scaleY(1); }
+            100% { transform: scaleY(0.1); }
+        }
+        .wave-bar {
+            animation: wave 1.2s infinite ease-in-out;
+            transform-origin: bottom;
+        }
+        .wave-bar:nth-child(2) { animation-delay: 0.1s; }
+        .wave-bar:nth-child(3) { animation-delay: 0.2s; }
+        .wave-bar:nth-child(4) { animation-delay: 0.3s; }
+        .wave-bar:nth-child(5) { animation-delay: 0.4s; }
+        .wave-bar:nth-child(6) { animation-delay: 0.5s; }
+        .wave-bar:nth-child(7) { animation-delay: 0.6s; }
+        .wave-bar:nth-child(8) { animation-delay: 0.7s; }
+        
+        /* Transition States */
+        #encoding-state { display: flex; }
+        #complete-state { display: none; }
+        
+        body.is-complete #encoding-state { display: none; }
+        body.is-complete #complete-state { display: flex; }
+
+    </style>
+</head>
+<body class="antialiased min-h-screen flex flex-col items-center justify-center bg-background px-margin-mobile">
+<!-- Intent implies transactional flow (Render & Share), Top Nav is hidden -->
+<!-- ENCODING STATE -->
+<div class="w-full max-w-md flex-col items-center justify-center space-y-stack-lg" id="encoding-state">
+<div class="text-center space-y-stack-md w-full">
+<div class="font-display-vcr text-display-vcr text-primary glitch-text tracking-tighter">
+                ENCODING ANALOG SIGNAL<span class="inline-block w-4 h-6 bg-primary ml-2 align-middle cursor-blink"></span>
+</div>
+<div class="font-status-readout text-status-readout text-on-surface-variant flex justify-between uppercase">
+<span>SRC: VTR_01</span>
+<span>DEST: MEMORY</span>
+</div>
+<!-- VHS Progress Bar -->
+<div class="w-full h-8 border border-outline-variant bg-surface-container-low relative overflow-hidden flex items-center">
+<!-- Static background lines indicating tape track -->
+<div class="absolute inset-0 flex flex-col justify-between py-1 opacity-20 pointer-events-none">
+<div class="w-full h-px bg-on-surface-variant"></div>
+<div class="w-full h-px bg-on-surface-variant"></div>
+<div class="w-full h-px bg-on-surface-variant"></div>
+</div>
+<!-- The actual progress fill -->
+<div class="h-full bg-primary animate-progress opacity-80" id="progress-bar"></div>
+<!-- Overlay text -->
+<div class="absolute inset-0 flex items-center justify-center font-label-mono text-label-mono text-background mix-blend-difference font-bold">
+                    REC \ ///
+                </div>
+</div>
+<div class="font-status-readout text-status-readout text-primary-fixed-dim text-left">
+                &gt; TRACKING... [OK]<br>
+                &gt; SYNC PULSE... [LOCKED]<br>
+                &gt; BUFFER... <span id="buffer-pct">0</span>%
+            </div>
+</div>
+</div>
+<!-- COMPLETE STATE -->
+<div class="w-full max-w-md flex-col items-center justify-center space-y-stack-lg" id="complete-state">
+<!-- Header Status -->
+<div class="w-full flex justify-between items-center border-b border-outline-variant pb-stack-sm">
+<span class="font-status-readout text-status-readout text-primary">STATUS: RENDER COMPLETE</span>
+<span class="font-status-readout text-status-readout text-on-surface-variant">REC_04.MP4</span>
+</div>
+<!-- Preview Area -->
+<div class="w-full aspect-[4/5] relative border border-outline-variant bg-surface-container-low overflow-hidden group">
+<img alt="Rendered Preview" class="w-full h-full object-cover filter contrast-125 saturate-50 sepia-[.2]" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCxWaXWPNFPJdqAlrRlH5jINO1emqVWyFWwiCTKTJisRguTTsfwkGEOqKEonYRMwN-2fX5On5_407dE9EhC0mFkDH8_Eb2R4OoWMhL6JvGrMFgnTOPqEycXDs65sinTm40BZO4_Rhu30CDxzuBtiboXbcJzNx-B4pNmquAZWObKoR-2I3rXeKw70M0_3kYvP1Ze8E-KurY1pULN1AdHAPWDwiPgTAr7UN--37S4BhpU9-VnXXDKSCrD">
+<!-- Audio Waveform Overlay -->
+<div class="absolute bottom-4 left-4 right-4 h-12 flex items-end justify-between gap-1 opacity-80 mix-blend-screen">
+<div class="w-full h-full bg-primary wave-bar"></div>
+<div class="w-full h-full bg-primary wave-bar"></div>
+<div class="w-full h-full bg-primary wave-bar"></div>
+<div class="w-full h-full bg-primary wave-bar"></div>
+<div class="w-full h-full bg-primary wave-bar"></div>
+<div class="w-full h-full bg-primary wave-bar"></div>
+<div class="w-full h-full bg-primary wave-bar"></div>
+<div class="w-full h-full bg-primary wave-bar"></div>
+<div class="w-full h-full bg-primary wave-bar"></div>
+<div class="w-full h-full bg-primary wave-bar"></div>
+</div>
+<!-- Timecode overlay -->
+<div class="absolute top-4 right-4 font-label-mono text-label-mono text-primary bg-background/50 px-2 py-1">
+                00:00:15:24
+            </div>
+</div>
+<!-- Controls (Deck Buttons) -->
+<div class="w-full flex flex-col space-y-stack-md">
+<button class="w-full bg-surface-container-highest border border-outline-variant tape-btn py-stack-md px-gutter flex items-center justify-center gap-gutter text-primary hover:text-primary-container font-headline-lg-mobile text-headline-lg-mobile transition-colors">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">download</span>
+                SAVE TO CAMERA ROLL
+            </button>
+<button class="w-full bg-surface-container-highest border border-outline-variant tape-btn py-stack-md px-gutter flex items-center justify-center gap-gutter text-on-surface hover:text-white font-headline-lg-mobile text-headline-lg-mobile transition-colors">
+<span class="material-symbols-outlined">share</span>
+                SHARE CLIP
+            </button>
+<button class="w-full bg-transparent border border-outline-variant tape-btn py-stack-sm px-gutter flex items-center justify-center text-on-surface-variant hover:text-error font-label-mono text-label-mono transition-colors mt-stack-md">
+                CANCEL
+            </button>
+</div>
+</div>
+<script>
+        // Simulate rendering process
+        document.addEventListener('DOMContentLoaded', () => {
+            const bufferSpan = document.getElementById('buffer-pct');
+            let pct = 0;
+            
+            const interval = setInterval(() => {
+                pct += Math.floor(Math.random() * 5) + 1;
+                if(pct > 100) pct = 100;
+                bufferSpan.innerText = pct;
+                
+                if(pct >= 100) {
+                    clearInterval(interval);
+                    setTimeout(() => {
+                        document.body.classList.add('is-complete');
+                    }, 500); // slight delay after 100%
+                }
+            }, 100);
+        });
+    </script>
+</body></html>
