@@ -2,19 +2,26 @@
 //  PatternGenerator.swift
 //  LiminalGenerator
 //
-//  Random arpeggio + drum pattern generation in the "liminal" style: slow,
-//  hazy, melancholic, always straight/even (no rests, no held notes, no
-//  swing -- every step triggers its own note). Musical parameters (key,
-//  scale, pattern shape) live on `ArpeggioPattern`; tempo is NOT one of
-//  them -- see `AudioEngineController.effectiveBPM`/`speed`. The render
-//  side (`LiminalDSPCore`) just reads MIDI notes/velocities off the step
-//  array -- it doesn't need music theory.
+//  Ambient-pad scene generation (SPEC.md Addendum 3 -- supersedes the
+//  arpeggio engine from Addenda 1/2). `regenerateMelody()` re-rolls a whole
+//  "scene": a random minor key, a 4-chord/4-bar looping progression drawn
+//  from a curated pool of nostalgic minor progressions, warm open-voiced
+//  pad chords (with frequent add9/sus2 substitutions), and a sparse
+//  motif-based melody in the key's minor pentatonic. The render side
+//  (`LiminalDSPCore`) just reads absolute MIDI notes off the generated
+//  scene -- it doesn't need music theory.
 //
-//  Pinned contract (do not rename): `ArpeggioPattern.displaySeq: String`.
-//  Per the SPEC.md addendum, `ArpeggioPattern` no longer carries a
-//  randomized `bpm` used for playback -- nothing reads a per-pattern bpm
-//  for timing anymore; the tick clock's rate comes from
-//  `AudioEngineController.effectiveBPM`.
+//  Pinned contract (do not rename): `ArpeggioPattern.displaySeq: String`,
+//  now returning the chord progression as chord names, e.g. "Am-F-C-G".
+//
+//  Chord-tone diatonicity is correct BY CONSTRUCTION: every chord tone is
+//  built by stacking `naturalMinorSteps` scale-degree offsets (root/
+//  third-or-second/fifth/ninth), never a hardcoded interval -- so any
+//  degree of the key's natural minor scale always yields tones that are
+//  themselves scale members. Likewise every melody note is built directly
+//  from `minorPentatonicIntervals`, so it can never leave the pentatonic
+//  set. See the scratchpad harness for an empirical regression check.
+//
 
 import Foundation
 
@@ -39,73 +46,74 @@ struct SeededGenerator: RandomNumberGenerator {
     }
 }
 
-// MARK: - Scales
+// MARK: - Chord / scene model
 
-/// Weighted at selection time (see `PatternGenerator.randomScale`): 90%
-/// uniformly from the first four cases, 10% `majorPentatonic` as an
-/// occasional sprinkle. Natural-minor/major-7-pentatonic from the pre-
-/// addendum generator are retired.
-enum LiminalScale: CaseIterable {
-    case minorPentatonic
-    case dorian
-    case mixolydian
-    case lydian
-    case majorPentatonic
-
-    /// Semitone offsets from the root, ascending within one octave.
-    var intervals: [Int] {
-        switch self {
-        case .minorPentatonic: return [0, 3, 5, 7, 10]
-        case .dorian: return [0, 2, 3, 5, 7, 9, 10]
-        case .mixolydian: return [0, 2, 4, 5, 7, 9, 10]
-        case .lydian: return [0, 2, 4, 6, 7, 9, 11]
-        case .majorPentatonic: return [0, 2, 4, 7, 9]
-        }
-    }
+/// A single voiced pad chord: `tones` are absolute MIDI notes (4-5 voices,
+/// root low, spread over roughly two octaves -- see `PatternGenerator
+/// .buildChord`), `rootMIDI` is the chord's own root (used by the bassline
+/// to derive the sub an octave below), `name` is the short chord-name
+/// string used in `displaySeq` (e.g. "Am", "F").
+struct ChordSpec: Sendable {
+    var rootMIDI: Int
+    var tones: [Int]
+    var name: String
 }
 
-// MARK: - Pattern shape
-
-/// Exactly one is chosen per `regenerateMelody()` call. `up`/`down` walk a
-/// fixed 2-octave ascending/descending scale-degree ladder
-/// (`PatternGenerator.octaveSpanDegrees`); `upDown` ascends to the top of
-/// that ladder then back down without repeating the peak note. All three
-/// are tiled (cyclically repeated) to fill the fixed
-/// `PatternGenerator.stepCount` steps -- see `PatternGenerator.buildDegreeSequence`.
-enum ArpShape: CaseIterable {
-    case up
-    case down
-    case upDown
-}
-
-// MARK: - Arpeggio pattern
-
-struct ArpStep: Sendable {
-    /// MIDI note number. No rests/holds anymore -- every step triggers its
-    /// own note-on with straight, even timing.
+/// One sparse melody note, positioned by its tick offset within the
+/// melody's looping cycle (see `MelodyMotif.cycleTicks`).
+struct MelodyNoteEvent: Sendable {
+    var tickOffset: Int
     var midiNote: Int
-    /// 0...1. Small humanization jitter only -- not a randomized musical
-    /// parameter.
     var velocity: Float
 }
 
-struct ArpeggioPattern: Sendable {
-    var displaySeq: String
-    var steps: [ArpStep]
-    /// Root MIDI note of the pattern's key (kept for reference/debugging).
-    var rootMIDI: Int
-    /// Kept for debugging/tests only -- not read by the DSP core for timing.
-    var scale: LiminalScale
-    var shape: ArpShape
+/// A short motif (2-5 notes per 2-bar/32-tick phrase) tiled across a fixed
+/// multi-phrase cycle, with later phrases repeating the motif with slight
+/// variation (octave shift or neighbor-tone substitution) or resting
+/// entirely -- see `PatternGenerator.generateMelodyMotif`. `lookup` is a
+/// precomputed (control-thread-built, render-thread-read-only) sparse
+/// array indexed by `tick % cycleTicks` so the render thread never
+/// allocates or searches.
+struct MelodyMotif: Sendable {
+    var events: [MelodyNoteEvent]
+    var cycleTicks: Int
+    var lookup: [MelodyNoteEvent?]
+
+    init(events: [MelodyNoteEvent], cycleTicks: Int) {
+        self.events = events
+        self.cycleTicks = cycleTicks
+        var table = [MelodyNoteEvent?](repeating: nil, count: max(1, cycleTicks))
+        for event in events where event.tickOffset >= 0 && event.tickOffset < table.count {
+            table[event.tickOffset] = event
+        }
+        self.lookup = table
+    }
 }
 
-// MARK: - Drum pattern (loop selection)
+// MARK: - Ambient scene (repurposed `ArpeggioPattern`, name pinned)
 
-/// Pinned contract (do not rename): selects one of the bundled CC0 lo-fi
-/// loops in `Resources/Loops/` (see `LoopLibrary`) rather than describing a
-/// synthesized pattern. `loopIndex` indexes `LoopLibrary.all`; `displayName`
-/// and `bpm` are copied from the matching `LoopInfo` for cheap UI/tempo-sync
-/// access without threading `LoopLibrary` lookups everywhere.
+/// Pinned type name (do not rename) -- repurposed per SPEC.md Addendum 3 to
+/// hold the generated ambient "scene": key, chord progression, voicing, and
+/// melody motif, instead of an arpeggio step sequence.
+struct ArpeggioPattern: Sendable {
+    /// Chord progression as chord names, e.g. "Am-F-C-G" (UI readout label
+    /// is "PROG:", changed by the UI agent).
+    var displaySeq: String
+    /// Key root pitch class 0...11 (always minor tonality).
+    var rootPitchClass: Int
+    /// Exactly 4 voiced chords, one per bar, looping forever (bar % 4).
+    var progression: [ChordSpec]
+    /// Scale-degree indices (0...6 into natural-minor `steps`) the
+    /// progression was built from, in the SAME order as `progression` --
+    /// kept for debugging/regression tests (verifying "progression always
+    /// from the curated pool").
+    var progressionDegrees: [Int]
+    /// Sparse floating melody, minor-pentatonic, motif-based.
+    var melodyMotif: MelodyMotif
+}
+
+// MARK: - Drum pattern (loop selection) -- unchanged by this addendum
+
 struct DrumPattern: Sendable {
     let loopIndex: Int
     let displayName: String
@@ -120,133 +128,178 @@ enum PatternGenerator {
         "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B",
     ]
 
-    /// Fixed step count for every generated arpeggio (NOT randomized --
-    /// see SPEC.md addendum). 16 gives one trigger per 16th-note tick
-    /// (`ArpeggioSequencer.ticksPerStep == 1`), the finest grid the shared
-    /// tick clock supports, which best resolves the `upDown` zigzag shape
-    /// across the fixed 2-octave span.
-    static let stepCount = 16
+    /// Natural minor (aeolian) scale-degree semitone offsets from the key
+    /// root, ascending within one octave. Every chord tone and every
+    /// melody-adjacent interval used by the generator is derived from this
+    /// table (never a hardcoded major/minor third), which is what makes
+    /// diatonicity hold by construction for ANY degree.
+    static let naturalMinorSteps = [0, 2, 3, 5, 7, 8, 10]
 
-    /// Fixed octave span for the `up`/`down`/`upDown` scale-degree ladder:
-    /// exactly 2 octaves (24 semitones == `2 * intervals.count` scale
-    /// degrees, which always lands precisely on `root + 24` regardless of
-    /// scale since `intervals[0] == 0` for every scale here).
-    private static let octaveSpanMultiplier = 2
+    /// Minor pentatonic intervals from the key root -- the melody's only
+    /// note pool (SPEC.md Addendum 3, "strictly in the key's minor
+    /// pentatonic").
+    static let minorPentatonicIntervals = [0, 3, 5, 7, 10]
 
-    /// Warm low-mid register anchor: root pitch class 0 (C) maps to MIDI 48
-    /// (C3); pitch classes 1...11 sit within the same octave (48...59).
-    private static let rootOctaveAnchorMIDI = 48
+    /// Curated pool of proven nostalgic minor progressions (SPEC.md
+    /// Addendum 3), expressed as scale-degree indices into
+    /// `naturalMinorSteps`: i=0, ii=1 (unused), III=2, iv=3, v=4, VI=5,
+    /// VII=6. Verified against the spec's own worked example: key A minor,
+    /// pool[0] == i-VI-III-VII resolves to Am-F-C-G.
+    static let progressionPool: [[Int]] = [
+        [0, 5, 2, 6], // i-VI-III-VII
+        [0, 6, 5, 6], // i-VII-VI-VII
+        [0, 3, 5, 4], // i-iv-VI-v
+        [0, 5, 3, 4], // i-VI-iv-v
+        [5, 6, 0, 0], // VI-VII-i-i
+        [0, 4, 5, 2], // i-v-VI-III
+        [0, 2, 6, 5], // i-III-VII-VI
+    ]
 
-    // MARK: Arpeggio
+    /// Low-register anchor for a chord's root voice ("root low" per the
+    /// addendum). MUST itself be a pitch class 0 (C) MIDI note -- MIDI 36
+    /// is C2 -- so that `padRootAnchorMIDI + chordRootPC` (below) lands
+    /// EXACTLY on `chordRootPC`'s pitch class with no octave-dependent
+    /// skew; every chord root lands in `36...47` (C2...B2). The sub-bass
+    /// then sits an octave below whatever the current bar's chord root is
+    /// (`rootMIDI - 12`, resolved live -- see `LiminalDSPCore.doTick`),
+    /// landing at `24...35` (C1...B1, ~33-65Hz), comfortably under ~150Hz.
+    static let padRootAnchorMIDI = 36
 
-    static func randomArpeggioPattern() -> ArpeggioPattern {
+    // MARK: Scene (chords + melody)
+
+    static func randomScene() -> ArpeggioPattern {
         var rng = SystemRandomNumberGenerator()
-        return randomArpeggioPattern(using: &rng)
+        return randomScene(using: &rng)
     }
 
-    /// Re-rolls ONLY root key, scale, and pattern shape (per SPEC.md
-    /// addendum) -- step count and octave span are the program constants
-    /// above, velocity carries only small humanization jitter.
-    static func randomArpeggioPattern<R: RandomNumberGenerator>(using rng: inout R) -> ArpeggioPattern {
+    /// Re-rolls the WHOLE scene: key, progression (from the curated pool),
+    /// chord voicings (with add9/sus2 substitution rolls), and the melody
+    /// motif -- per SPEC.md Addendum 3 "GENERATE MELODY re-rolls the whole
+    /// scene."
+    static func randomScene<R: RandomNumberGenerator>(using rng: inout R) -> ArpeggioPattern {
         let rootPitchClass = Int.random(in: 0...11, using: &rng)
-        let rootMIDI = rootOctaveAnchorMIDI + rootPitchClass
-        let scale = randomScale(using: &rng)
-        let shape = ArpShape.allCases.randomElement(using: &rng) ?? .up
+        let degrees = progressionPool.randomElement(using: &rng) ?? progressionPool[0]
+        let progression = degrees.map { buildChord(rootPitchClass: rootPitchClass, degreeIndex: $0, using: &rng) }
+        let melody = generateMelodyMotif(rootPitchClass: rootPitchClass, using: &rng)
+        let displaySeq = progression.map(\.name).joined(separator: "-")
+        return ArpeggioPattern(displaySeq: displaySeq, rootPitchClass: rootPitchClass,
+                                progression: progression, progressionDegrees: degrees, melodyMotif: melody)
+    }
 
-        let intervals = scale.intervals
-        let degreeSequence = buildDegreeSequence(shape: shape, scaleDegreeCount: intervals.count, stepCount: stepCount)
+    /// Builds one warm, open-voiced pad chord for scale degree `degreeIndex`
+    /// of the key rooted at `rootPitchClass`. 4-5 voices, root low, spread
+    /// over ~2 octaves, with a 15% chance of a sus2 substitution (2nd
+    /// degree replaces the 3rd) and a 30% chance of an add9 extension
+    /// (9th added on top) -- both computed from the SAME diatonic
+    /// scale-degree math as the plain triad, so they can never introduce an
+    /// out-of-key tone. Voice gaps are always >= 3 semitones (no tight
+    /// clusters): root=0, mid(3rd/2nd)~13-16, 5th=19, top(9th/octave)~24-26,
+    /// optional 5th voice=31.
+    static func buildChord<R: RandomNumberGenerator>(rootPitchClass: Int, degreeIndex: Int,
+                                                       using rng: inout R) -> ChordSpec {
+        let steps = naturalMinorSteps
+        func step(_ i: Int) -> Int { steps[((i % 7) + 7) % 7] }
 
-        var steps: [ArpStep] = []
-        steps.reserveCapacity(stepCount)
-        for degree in degreeSequence {
-            let midi = scaleDegreeMIDI(rootMIDI: rootMIDI, intervals: intervals, degree: degree)
-            // Hard invariant (SPEC.md addendum 2): a generated note must
-            // NEVER deviate from the pattern's root by more than 24
-            // semitones (2 octaves) in either direction. `buildDegreeSequence`
-            // + `scaleDegreeMIDI` are constructed so this should already
-            // hold by design (degrees are tiled from a single [0, 2k] ladder
-            // that always resolves to [root, root+24]), but this is an
-            // explicit, always-enforced clamp rather than trusting that math
-            // alone -- verified empirically in the sanity harness across
-            // every scale/shape combination.
-            let clampedMidi = clamp(midi, rootMIDI - 24, rootMIDI + 24)
-            assert(midi == clampedMidi, "PatternGenerator produced a note >24 semitones from root: \(midi) vs root \(rootMIDI)")
-            let velocity = rng.nextHumanizedVelocity()
-            steps.append(ArpStep(midiNote: clampedMidi, velocity: velocity))
+        let rootStep = step(degreeIndex)
+        func diatonicOffset(_ targetIndex: Int) -> Int {
+            let raw = step(targetIndex) - rootStep
+            return raw < 0 ? raw + 12 : raw
+        }
+        let thirdStep = diatonicOffset(degreeIndex + 2)
+        let secondStep = diatonicOffset(degreeIndex + 1) // used for sus2 AND the 9th (secondStep + 12)
+
+        let chordRootPC = ((rootPitchClass + rootStep) % 12 + 12) % 12
+        let isMajor = thirdStep == 4
+        let name = pitchClassNames[chordRootPC] + (isMajor ? "" : "m")
+
+        let subRoll = Float.random(in: 0...1, using: &rng)
+        let useSus2 = subRoll >= 0.55 && subRoll < 0.70   // 15%
+        let useAdd9 = subRoll >= 0.70                     // 30%
+        let midVoiceInterval = useSus2 ? secondStep : thirdStep
+
+        let chordRootMIDI = padRootAnchorMIDI + chordRootPC
+        var tones: [Int] = [chordRootMIDI]
+        tones.append(chordRootMIDI + 12 + midVoiceInterval) // 3rd/2nd, ~1 octave up
+        tones.append(chordRootMIDI + 19)                    // 5th, octave+fifth up
+        tones.append(useAdd9 ? chordRootMIDI + 24 + secondStep : chordRootMIDI + 24) // 9th or doubled root, top
+        if Float.random(in: 0...1, using: &rng) < 0.6 {
+            tones.append(chordRootMIDI + 31) // 5th voice: fifth doubled high, ~60% of chords
         }
 
-        let displaySeq = makeDisplaySeq(steps: steps)
-        return ArpeggioPattern(displaySeq: displaySeq, steps: steps, rootMIDI: rootMIDI, scale: scale, shape: shape)
+        return ChordSpec(rootMIDI: chordRootMIDI, tones: tones, name: name)
     }
 
-    /// 90% uniformly from {minorPentatonic, dorian, mixolydian, lydian},
-    /// 10% majorPentatonic as an occasional sprinkle.
-    private static func randomScale<R: RandomNumberGenerator>(using rng: inout R) -> LiminalScale {
-        let commonScales: [LiminalScale] = [.minorPentatonic, .dorian, .mixolydian, .lydian]
-        let roll = Float.random(in: 0...1, using: &rng)
-        if roll < 0.10 {
-            return .majorPentatonic
-        }
-        return commonScales.randomElement(using: &rng) ?? .minorPentatonic
-    }
-
-    /// Maps a scale degree (can exceed `intervals.count`, wraps with an
-    /// octave shift) to an absolute MIDI note.
-    private static func scaleDegreeMIDI(rootMIDI: Int, intervals: [Int], degree: Int) -> Int {
-        let k = intervals.count
-        let wrapped = ((degree % k) + k) % k
-        let octave = degree >= 0 ? degree / k : (degree - k + 1) / k
-        return rootMIDI + intervals[wrapped] + 12 * octave
-    }
-
-    /// Builds the fixed-length (`stepCount`) sequence of scale degrees for
-    /// a pattern shape, by tiling (cyclically repeating) the shape's
-    /// natural one-cycle degree ladder over the fixed 2-octave span:
-    ///   - `up`: degrees `0...2k` ascending (k = scaleDegreeCount), tiled.
-    ///   - `down`: the same ladder reversed, tiled.
-    ///   - `upDown`: ascend `0...2k` then back down to (but excluding) the
-    ///     root and the already-played peak, i.e. no repeated peak note at
-    ///     the turnaround; that `(2k+1) + (2k-1) = 4k` length cycle is tiled.
-    /// Tiling (rather than growing the octave span with more steps) is what
-    /// keeps the octave span fixed regardless of `stepCount`/scale size.
-    static func buildDegreeSequence(shape: ArpShape, scaleDegreeCount k: Int, stepCount: Int) -> [Int] {
-        guard k > 0 else { return Array(repeating: 0, count: stepCount) }
-        let topDegree = octaveSpanMultiplier * k
-        let ascendLadder = Array(0...topDegree) // length topDegree + 1, e.g. 0...2k
-
-        let cycle: [Int]
-        switch shape {
-        case .up:
-            cycle = ascendLadder
-        case .down:
-            cycle = ascendLadder.reversed()
-        case .upDown:
-            // Ascend to the peak, then back down without repeating the
-            // peak (drop the last element of the reversed descent's
-            // leading edge) -- classic zigzag, no doubled turnaround note.
-            let descend = ascendLadder.reversed().dropFirst() // exclude the peak (already played)
-            cycle = ascendLadder + Array(descend)
+    /// Generates a sparse, motif-based melody: a base "phrase" of 2-5 notes
+    /// across a 2-bar (32-tick) window from the key's minor pentatonic,
+    /// tiled across a 4-phrase (8-bar/128-tick) cycle where phrase 0 always
+    /// plays (guarantees a non-empty scene), and phrases 1-3 each either
+    /// repeat the base motif exactly, repeat it with an octave shift,
+    /// repeat it with a neighbor-tone substitution on one note, or rest
+    /// entirely (25% chance) -- "motif repeats across phrases with slight
+    /// variation... occasionally resting for an entire phrase" per
+    /// SPEC.md Addendum 3.
+    static func generateMelodyMotif<R: RandomNumberGenerator>(rootPitchClass: Int, using rng: inout R) -> MelodyMotif {
+        let keyRootMIDI = padRootAnchorMIDI + rootPitchClass
+        let pentatonic = minorPentatonicIntervals
+        func note(degree: Int, octave: Int) -> Int {
+            let wrapped = ((degree % pentatonic.count) + pentatonic.count) % pentatonic.count
+            return keyRootMIDI + pentatonic[wrapped] + 12 * octave
         }
 
-        guard !cycle.isEmpty else { return Array(repeating: 0, count: stepCount) }
-        return (0..<stepCount).map { cycle[$0 % cycle.count] }
-    }
+        let phraseTicks = 32
+        let phraseCount = 4
 
-    private static func makeDisplaySeq(steps: [ArpStep]) -> String {
-        var seen = Set<Int>()
-        var names: [String] = []
-        for step in steps {
-            let pc = ((step.midiNote % 12) + 12) % 12
-            if seen.insert(pc).inserted {
-                names.append(pitchClassNames[pc])
-                if names.count == 4 { break }
+        // Base phrase: 2-5 sparse notes, minimum 5-tick gap between onsets
+        // (long soft attacks -- avoid stacking notes too close together).
+        let noteCount = Int.random(in: 2...5, using: &rng)
+        var offsets: [Int] = []
+        var cursor = Int.random(in: 0...3, using: &rng)
+        while offsets.count < noteCount && cursor <= phraseTicks - 2 {
+            offsets.append(cursor)
+            cursor += Int.random(in: 5...9, using: &rng)
+        }
+        if offsets.isEmpty { offsets = [Int.random(in: 0...3, using: &rng)] }
+
+        let baseDegrees = offsets.map { _ in Int.random(in: 0..<pentatonic.count, using: &rng) }
+        // Octave 1 or 2 above the key root -- "1-2 octaves above the pads".
+        let baseOctaves = offsets.map { _ in Int.random(in: 1...2, using: &rng) }
+
+        var events: [MelodyNoteEvent] = []
+        for phraseIndex in 0..<phraseCount {
+            if phraseIndex > 0 {
+                let restRoll = Float.random(in: 0...1, using: &rng)
+                if restRoll < 0.25 { continue } // rest this phrase entirely
+            }
+
+            var degrees = baseDegrees
+            var octaves = baseOctaves
+            if phraseIndex > 0 {
+                switch Int.random(in: 0...2, using: &rng) {
+                case 0: // octave-shift variation
+                    let dir = Bool.random(using: &rng) ? 1 : -1
+                    octaves = octaves.map { clamp($0 + dir, 1, 2) }
+                case 1: // neighbor-tone variation on a single note
+                    if let idx = degrees.indices.randomElement(using: &rng) {
+                        let dir = Bool.random(using: &rng) ? 1 : -1
+                        degrees[idx] = ((degrees[idx] + dir) % pentatonic.count + pentatonic.count) % pentatonic.count
+                    }
+                default:
+                    break // exact repeat
+                }
+            }
+
+            for (i, offset) in offsets.enumerated() {
+                let midi = note(degree: degrees[i], octave: octaves[i])
+                let velocity = Float.random(in: 0.45...0.70, using: &rng) // "quiet", soft-floating
+                events.append(MelodyNoteEvent(tickOffset: phraseIndex * phraseTicks + offset,
+                                               midiNote: midi, velocity: velocity))
             }
         }
-        if names.isEmpty { names = ["C"] }
-        return names.joined(separator: "-")
+
+        return MelodyMotif(events: events, cycleTicks: phraseTicks * phraseCount)
     }
 
-    // MARK: Drums (loop selection)
+    // MARK: Drums (loop selection) -- unchanged by this addendum
 
     /// Picks a random bundled loop. `excludingLoopIndex`, when non-nil,
     /// guarantees the result never repeats that index (used by
@@ -268,13 +321,5 @@ enum PatternGenerator {
         }
         let info = LoopLibrary.all[index]
         return DrumPattern(loopIndex: index, displayName: info.displayName, bpm: info.bpm)
-    }
-}
-
-private extension RandomNumberGenerator {
-    /// Small humanization jitter around a confident lead-line level --
-    /// NOT a randomized musical parameter (accenting only).
-    mutating func nextHumanizedVelocity() -> Float {
-        Float.random(in: 0.78...0.98, using: &self)
     }
 }

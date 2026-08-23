@@ -103,8 +103,10 @@ final class AudioEngineController: ObservableObject {
     }
 
     /// Melody voice oscillator waveform (SPEC.md addendum 2). Default
-    /// `.triangle`. Never affects the bassline or drums.
-    @Published var waveform: LiminalWaveform = .triangle {
+    /// changed to `.sine` per Addendum 3 -- "fits the [ambient pad] style
+    /// best". Never affects the pad layer (fixed sound design), the
+    /// bassline, or drums.
+    @Published var waveform: LiminalWaveform = .sine {
         didSet { dsp.setWaveform(waveform) }
     }
 
@@ -145,7 +147,7 @@ final class AudioEngineController: ObservableObject {
     private var interruptionObserver: NSObjectProtocol?
 
     init() {
-        let pattern = PatternGenerator.randomArpeggioPattern()
+        let pattern = PatternGenerator.randomScene()
         let beat = PatternGenerator.randomDrumPattern()
         let bassPattern = BasslineGenerator.randomBasslinePattern()
         currentPattern = pattern
@@ -157,7 +159,7 @@ final class AudioEngineController: ObservableObject {
                               space: 0.55, age: 0.4,
                               drumsEnabled: false, drumLevel: 0.65,
                               speed: 0.5, color: 0.5,
-                              waveform: .triangle,
+                              waveform: .sine,
                               bassEnabled: false, bassColor: 0.5, bassLevel: 0.65,
                               sampleRate: Self.sampleRate)
 
@@ -197,26 +199,28 @@ final class AudioEngineController: ObservableObject {
         }
     }
 
-    /// Re-rolls root key, scale, and pattern shape. The bassline is NOT
-    /// re-rolled here -- it doesn't need to be. Bass notes are stored as
-    /// scale-degree ROLES (root/fifth/third/octaveUp), resolved against
-    /// whatever the CURRENT `ArpeggioPattern`'s root+scale is at the moment
-    /// each bass note triggers (see `LiminalDSPCore.doTick` /
-    /// `BasslineGenerator.resolveBassMIDI`) -- so as soon as `dsp.setPattern`
-    /// below takes effect, every subsequent bass note automatically
-    /// harmonizes with the new key. This is the non-negotiable invariant
-    /// from SPEC.md addendum 2 ("must never sound like it's in the wrong
-    /// key after a melody regenerate"); verified in the audio agent's
-    /// sanity harness by regenerating the melody repeatedly and confirming
-    /// bass notes stay valid scale degrees of whatever the new key is.
+    /// Re-rolls the WHOLE ambient scene (key, progression, chord voicings,
+    /// melody motif -- see `PatternGenerator.randomScene`, SPEC.md
+    /// Addendum 3). The bassline movement pattern is NOT re-rolled here --
+    /// it doesn't need to be. The sub-bass never stores a pitch: it's
+    /// resolved live against whatever the CURRENT scene's chord root is at
+    /// the moment each bass note triggers (see `LiminalDSPCore.doTick`) --
+    /// so as soon as `dsp.setPattern` below takes effect (at the next bar
+    /// boundary), every subsequent bass note automatically harmonizes with
+    /// the new key. This is the same non-negotiable invariant carried
+    /// forward from SPEC.md addendum 2 ("must never sound like it's in the
+    /// wrong key after a melody regenerate"); verified in the audio agent's
+    /// sanity harness by regenerating the scene repeatedly and confirming
+    /// bass notes stay valid roots/passing-tones of whatever the new key's
+    /// chords are.
     func regenerateMelody() {
-        let pattern = PatternGenerator.randomArpeggioPattern()
+        let pattern = PatternGenerator.randomScene()
         currentPattern = pattern
         dsp.setPattern(pattern)
     }
 
-    /// Re-rolls a new bassline rhythm/note pattern against the CURRENT
-    /// key/scale (does not touch key/scale itself).
+    /// Re-rolls a new sub-bass movement variation (hold/re-articulate/
+    /// passing-tone per bar) -- does not touch the key/progression itself.
     func regenerateBass() {
         let pattern = BasslineGenerator.randomBasslinePattern()
         currentBassPattern = pattern

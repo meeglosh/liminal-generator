@@ -132,10 +132,12 @@ struct MainView: View {
             .accessibilityIdentifier("generateMelodyButton")
 
             HStack {
-                (Text("SEQ: ")
+                (Text("PROG: ")
                     .foregroundColor(.liminalOnSurfaceVariant)
                     + Text(engine.currentPattern.displaySeq)
                     .foregroundColor(.liminalCRTGreenDim))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
                     .accessibilityIdentifier("seqReadout")
 
                 Spacer()
@@ -147,6 +149,7 @@ struct MainView: View {
                 // SPEC.md's "Musical style" / pinned contract addendum.
                 Text("BPM: \(engine.effectiveBPM)")
                     .foregroundColor(.liminalOnSurfaceVariant)
+                    .layoutPriority(1)
                     .accessibilityIdentifier("bpmReadout")
             }
             .font(.spaceMono(size: 11))

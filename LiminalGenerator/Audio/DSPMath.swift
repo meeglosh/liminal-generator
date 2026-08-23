@@ -69,12 +69,13 @@ struct XorshiftRNG {
 // MARK: - Tempo / SPEED
 
 /// Fixed base tempo (bpm) for the shared 16th-note tick clock when drums
-/// are disabled -- picked to sit at the rough center of the old randomized
-/// 68...96 bpm generation range (retired; tempo no longer comes from
-/// `ArpeggioPattern`). Single source of truth shared by `LiminalDSPCore`
-/// (tick-clock scheduling) and `AudioEngineController` (the `effectiveBPM`
-/// readout), so the two can never drift apart.
-let baseMelodyBPM: Double = 82
+/// are disabled. Lowered from 82 to 72 for the ambient-pad pivot (SPEC.md
+/// Addendum 3 allows 68...80) -- at one chord per bar (16 ticks), 72bpm
+/// gives a ~3.3s bar at 1.0x SPEED, a slow, unhurried "Snowfall"-style
+/// pace. Single source of truth shared by `LiminalDSPCore` (tick-clock
+/// scheduling) and `AudioEngineController` (the `effectiveBPM` readout),
+/// so the two can never drift apart.
+let baseMelodyBPM: Double = 72
 
 /// SPEED (0...1) -> tempo/playback-rate multiplier, per SPEC.md: 0.70x at
 /// speed=0, exactly 1.0x at the default speed=0.5, 1.30x at speed=1 -- a
@@ -136,6 +137,26 @@ enum LiminalWaveform: String, CaseIterable, Sendable {
 @inline(__always) func levelToGainLinear(_ level: Float) -> Float {
     guard level > 0.001 else { return 0 }
     let db = lerp(-40, 6, clamp(level, 0, 1))
+    return dBToLinear(db)
+}
+
+// MARK: - Breathing (always-on tempo-synced pad+bass gain swell)
+
+/// SPEC.md Addendum 3 "Breathing": a gentle, always-on, tempo-synced
+/// volume swell on the pad+bass bus (never the melody) -- a smooth
+/// raised-cosine dip of `depthDB` centered on the middle of each bar (or
+/// half-bar when drums are enabled), returning to unity gain exactly at
+/// the bar edges. `phase` is 0...1 progress through the current breathing
+/// period, driven entirely by the shared sample-accurate tick clock (see
+/// `LiminalDSPCore`'s `breathBarStartSample`/`breathBarLengthSamples`), so
+/// it is inherently tempo-synced (scales with SPEED automatically) and
+/// deterministic for offline-render parity: both the live and offline
+/// `LiminalDSPCore` start from `globalTickIndex == 0` with identical
+/// initial state, so the breathing phase can never drift between them
+/// without any extra explicit seeding.
+@inline(__always) func breathingGainLinear(phase: Float, depthDB: Float) -> Float {
+    let raised = 0.5 - 0.5 * cos(2 * Float.pi * clamp(phase, 0, 1)) // 0 at edges, 1 at bar midpoint
+    let db = -depthDB * raised
     return dBToLinear(db)
 }
 

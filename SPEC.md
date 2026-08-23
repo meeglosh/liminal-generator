@@ -283,6 +283,59 @@ final class AudioEngineController: ObservableObject {
 `renderOffline` must seed the offline core with the live `waveform`, `bassEnabled`, `bassColor`, `bassLevel`,
 and current bass pattern, same as every other live parameter.
 
+### Addendum 3 (ambient-pad pivot — "Snowfall" style, 2026-08-23) — SUPERSEDES the arpeggio engine
+Product direction change: the rigid arpeggio rules from Addendum 1/2 are retired. The generator must emulate
+the style of popular liminal/dreamcore ambient tracks (reference: "Snowfall" — Øneheart × reidenshi): slow,
+washed-out, relaxing, nostalgic. That style is NOT arpeggio-driven; its DNA is:
+
+**1. Pad chords (the core layer, replaces the arpeggio):**
+- Random minor key per generate (always minor tonality; a dorian color chord is allowed inside progressions).
+- A 4-chord progression looping forever, ONE CHORD PER BAR (16 ticks), drawn from a curated pool of proven
+  nostalgic minor progressions (degrees relative to the minor key): i–VI–III–VII, i–VII–VI–VII, i–iv–VI–v,
+  i–VI–iv–v, VI–VII–i–i, i–v–VI–III, i–III–VII–VI. Chords are voiced warmly: 4–5 voices spread over ~2
+  octaves, root low, with add9 or sus2 extensions frequently substituted for plain triads (genre staple —
+  gives the "nostalgic shimmer"); avoid tight semitone clusters.
+- Pad voice: FIXED sound design (not user-selectable): per chord voice, 3 detuned oscillators (saw+triangle
+  blend, ±5–12 cents) → the existing 24dB lowpass. Slow attack 0.5–1.5s, high sustain, long release 2–4s.
+  Chord transitions must crossfade (old chord releases while new one swells — no gaps, no clicks).
+- The SYNTH card's COLOR slider (24dB filter) now governs the whole synth layer's base cutoff (pads AND
+  melody voice; each may have its own filter instance but tracking the same `color` value). Bass keeps its
+  independent `bassColor` filter.
+- `ArpeggioPattern` is repurposed as the generated "scene": key, progression, voicing seed, melody motif.
+  `displaySeq` now returns the chord progression as chord names, e.g. "Am–F–C–G" (readable, user-facing);
+  the UI's readout label changes from "SEQ:" to "PROG:".
+
+**2. Sparse floating melody (on top, quiet):**
+- 2–5 soft notes per 2-bar phrase from the key's minor pentatonic, 1–2 octaves above the pads, long slow
+  attacks, occasionally resting for an entire phrase (space is part of the style). Motif repeats across
+  phrases with slight variation (octave shift or neighbor tone), so it feels composed, not random.
+- The waveform chips (SINE/TRIANGLE/SQUARE/SAW) select THIS voice's oscillator only. Default changes to
+  `.sine` (fits the style best). Melody rides through the same COLOR filter and shared FX chain.
+
+**3. Sub-bass (the BASSLINE section, repurposed):**
+- A deep, soft sub (fixed sine, one octave below the pad roots) following the CURRENT BAR'S CHORD ROOT —
+  no more walking/melodic bassline. Slow attack swells. `regenerateBass()` re-rolls a subtle movement
+  variation (whole-bar holds vs. gentle re-articulations vs. an occasional octave-up or fifth passing tone
+  at bar transitions). Existing UI (toggle/COLOR/LEVEL/GENERATE) unchanged.
+
+**4. Breathing (always on, no UI):**
+- A gentle tempo-synced volume swell (sidechain-pump feel) on pads + bass: smooth dip of ~2–4dB per bar
+  (or per half-bar when drums are enabled, lightly following the beat), with a soft curve — subtle,
+  "inhale/exhale", never choppy. Melody is NOT ducked (it floats above).
+
+**5. Unchanged:** drums (loop playback, tempo-master when enabled), SPACE/AGE/SPEED semantics, effectiveBPM
+(base tempo may drop to ~72 for the style — implementer's call within 68–80), tick-clock architecture,
+offline-render parity (seed everything: scene, motif, bass variation, breathing phase).
+
+**Regeneration semantics:** GENERATE MELODY re-rolls the whole scene (key, progression, voicing seed, melody
+motif). GENERATE BASS re-rolls only the bass movement variation. GENERATE BEAT unchanged (loop pick).
+
+**Quality bar for this addendum:** chord tones always diatonic to the rolled key (with the allowed
+add9/sus2 substitutions), melody strictly in the key's minor pentatonic, chord changes exactly on bar
+boundaries, crossfades click-free, breathing measurable as periodic RMS modulation at the bar rate,
+no clipping at full COLOR/space/age extremes. The result must FEEL slow, warm, and melancholic —
+when in doubt, choose fewer notes, slower envelopes, and darker defaults.
+
 ## Quality bar
 - `xcodebuild -scheme LiminalGenerator -destination 'iPhone 17 Pro simulator' build` must succeed with no
   warnings-as-errors issues; app runs, audio plays immediately on PLAY, no crackles (render callback does no

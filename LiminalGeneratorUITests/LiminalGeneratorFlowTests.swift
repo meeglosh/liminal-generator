@@ -59,7 +59,7 @@ final class LiminalGeneratorFlowTests: XCTestCase {
 
         saveScreenshot(app, name: "02_after_play.png")
 
-        // MARK: 3. Generate melody -> SEQ/BPM readout changes
+        // MARK: 3. Generate melody -> PROG/BPM readout changes
 
         let seqReadout = app.staticTexts["seqReadout"]
         let bpmReadout = app.staticTexts["bpmReadout"]
@@ -82,9 +82,9 @@ final class LiminalGeneratorFlowTests: XCTestCase {
                 break
             }
         }
-        XCTAssertTrue(changed, "SEQ or BPM readout should change after tapping GENERATE MELODY at least once in 3 tries. seq=\(seqReadout.label) bpm=\(bpmReadout.label)")
+        XCTAssertTrue(changed, "PROG or BPM readout should change after tapping GENERATE MELODY at least once in 3 tries. prog=\(seqReadout.label) bpm=\(bpmReadout.label)")
 
-        // MARK: 3b. COLOR slider exists in the SYNTH card (below SEQ/BPM) & is adjustable
+        // MARK: 3b. COLOR slider exists in the SYNTH card (below PROG/BPM) & is adjustable
 
         let colorSlider = app.otherElements["colorSlider"]
         scrollUntilHittable(colorSlider, in: app)
@@ -93,8 +93,9 @@ final class LiminalGeneratorFlowTests: XCTestCase {
         dragSlider(colorSlider)
 
         // MARK: 3c. Waveform chips (SINE/TRIANGLE/SQUARE/SAW) exist below COLOR,
-        // default selection is TRIANGLE, and tapping a different chip flips
-        // the accessibility-selected state (LiminalSelectableChip reports
+        // default selection is SINE (ambient-pad pivot changed the engine's
+        // default waveform), and tapping a different chip flips the
+        // accessibility-selected state (LiminalSelectableChip reports
         // .isSelected via the .isSelected accessibility trait).
 
         let sineChip = app.buttons["waveformChip_sine"]
@@ -102,20 +103,20 @@ final class LiminalGeneratorFlowTests: XCTestCase {
         let squareChip = app.buttons["waveformChip_square"]
         let sawChip = app.buttons["waveformChip_saw"]
 
-        scrollUntilHittable(triangleChip, in: app)
+        scrollUntilHittable(sineChip, in: app)
         XCTAssertTrue(sineChip.exists, "SINE waveform chip should exist")
         XCTAssertTrue(triangleChip.exists, "TRIANGLE waveform chip should exist")
         XCTAssertTrue(squareChip.exists, "SQUARE waveform chip should exist")
         XCTAssertTrue(sawChip.exists, "SAW waveform chip should exist")
-        XCTAssertTrue(triangleChip.isSelected, "TRIANGLE should be selected by default (engine.waveform default is .triangle)")
+        XCTAssertTrue(sineChip.isSelected, "SINE should be selected by default (engine.waveform default is .sine)")
 
         XCTAssertTrue(squareChip.isHittable, "SQUARE chip should be scrolled into view")
         squareChip.tap()
 
         let selectionFlipped = waitFor(timeout: 2) {
-            squareChip.isSelected && !triangleChip.isSelected
+            squareChip.isSelected && !sineChip.isSelected
         }
-        XCTAssertTrue(selectionFlipped, "Tapping SQUARE should select it and deselect TRIANGLE")
+        XCTAssertTrue(selectionFlipped, "Tapping SQUARE should select it and deselect SINE")
 
         // MARK: 3d. BASSLINE card (between SYNTH and GLOBAL ENV): enable ->
         // COLOR/LEVEL sliders + GENERATE BASS appear -> adjust -> generate.

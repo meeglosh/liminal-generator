@@ -51,8 +51,13 @@ final class LiminalDSPCore: @unchecked Sendable {
     // MARK: Render-thread-only state
 
     private var rng: XorshiftRNG
+    /// Sparse floating melody voice pool (SPEC.md Addendum 3). Small pool
+    /// is plenty -- melody is 2-5 notes per 2-bar phrase, rarely more than
+    /// 2-3 overlapping given the motif generator's minimum note spacing.
     private let voiceBank: SynthVoiceBank
-    private let arpSeq: ArpeggioSequencer
+    /// Pad-chord voice pool -- see `PadVoice.swift`.
+    private let padBank: PadVoiceBank
+    private let sceneSeq: SceneSequencer
     private let bassSeq: BassSequencer
     private var bassVoice = BassVoice()
     private let loopPlayer: LoopPlayer
@@ -94,20 +99,40 @@ final class LiminalDSPCore: @unchecked Sendable {
     private var elapsedSamples: Int64 = 0
     private var nextTickSample: Int64 = 0
     private var globalTickIndex: Int = 0
+    /// `globalTickIndex` value at which the currently-active scene's
+    /// progression/melody cycle "began" -- reset to the current
+    /// `globalTickIndex` whenever `sceneSeq` applies a queued swap at a bar
+    /// boundary, so a freshly-regenerated scene always starts its
+    /// progression at chord 0 and its melody motif at phrase 0, rather than
+    /// resuming mid-cycle against the old scene's absolute tick position.
+    private var sceneStartTick: Int = 0
+
+    // MARK: Breathing (SPEC.md Addendum 3, always on)
+    //
+    // A gentle, tempo-synced gain swell on the pad+bass bus (never melody).
+    // Driven entirely by the shared sample-accurate tick clock -- see
+    // `breathingGainLinear` in DSPMath.swift for why this makes the phase
+    // inherently deterministic across live/offline renders with no extra
+    // seeding. Period is 16 ticks (one bar) normally, or 8 ticks (half a
+    // bar) while drums are enabled ("lightly following the beat").
+    private var activeBreathingPeriodTicks: Int = 16
+    private var breathBarStartSample: Int64 = 0
+    private var breathBarLengthSamples: Double = 1
+    private static let breathingDepthDB: Float = 3.0
 
     // Tempo-sync state (render-thread-only). The shared 16th-note tick grid
     // normally runs at the fixed `baseMelodyBPM` constant; while drums are
     // enabled it instead runs at the active loop's bpm. Either way the
     // result is further scaled by SPEED's `speedMultiplier` (0.70x...1.30x,
-    // smoothed) -- see `scheduleNextTick`. To keep loop-start and
-    // arpeggio-pattern-cycle boundaries phase-aligned, the loop-vs-fixed-bpm
-    // switch (and any queued loop swap) is only ever applied at a "bar"
-    // boundary -- every 16 ticks, which is exactly one full cycle of the
-    // fixed 16-step arp pattern (see `ArpeggioSequencer.ticksPerStep`,
-    // `PatternGenerator.stepCount`) and matches the loop files' own 4-bar
-    // structure once tempo-locked. SPEED changes are NOT gated to bar
-    // boundaries -- they're smoothed instead (uniform time-scaling, not a
-    // content swap, so no phase-alignment concern).
+    // smoothed) -- see `scheduleNextTick`. To keep loop-start and chord/bar
+    // boundaries phase-aligned, the loop-vs-fixed-bpm switch (and any
+    // queued loop or scene swap) is only ever applied at a "bar" boundary
+    // -- every 16 ticks, one chord's worth of the pad progression (see
+    // `PatternGenerator.padRootAnchorMIDI` / `ArpeggioPattern.progression`)
+    // -- and matches the loop files' own 4-bar structure once tempo-locked.
+    // SPEED changes are NOT gated to bar boundaries -- they're smoothed
+    // instead (uniform time-scaling, not a content swap, so no
+    // phase-alignment concern).
     private static let ticksPerBar = 16
     private var activeTempoUsesLoop: Bool
     private var pendingDrumsEnabledForTempo: Bool
@@ -162,8 +187,9 @@ final class LiminalDSPCore: @unchecked Sendable {
         lastSeenBassRef = bassValueBox
 
         rng = XorshiftRNG(seed: 0xC0FFEE_1234_5678)
-        voiceBank = SynthVoiceBank(voiceCount: 10, sampleRate: sampleRate)
-        arpSeq = ArpeggioSequencer(initialPattern: pattern)
+        voiceBank = SynthVoiceBank(voiceCount: 8, sampleRate: sampleRate)
+        padBank = PadVoiceBank(voiceCount: 20, sampleRate: sampleRate)
+        sceneSeq = SceneSequencer(initialScene: pattern)
         bassSeq = BassSequencer(initialPattern: bassPattern)
         loopPlayer = LoopPlayer(initialPattern: beat, initialBuffer: loopBuffer)
         wowL = WowFlutterProcessor(sampleRate: sampleRate, phaseOffset: 0)
@@ -184,6 +210,14 @@ final class LiminalDSPCore: @unchecked Sendable {
 
         activeTempoUsesLoop = drumsEnabled
         pendingDrumsEnabledForTempo = drumsEnabled
+
+        // Sane default breathing-bar length (one bar at baseMelodyBPM,
+        // 1.0x speed) so the very first bar's breathing curve is already
+        // correct before the first tick's boundary recompute.
+        let initialBpm = drumsEnabled ? Double(max(1, loopBuffer.bpm)) : baseMelodyBPM
+        let initialSamplesPerTick = (sampleRate * 60.0 / (initialBpm * 4.0)) / Double(speedMultiplier(speed))
+        activeBreathingPeriodTicks = Self.ticksPerBar
+        breathBarLengthSamples = initialSamplesPerTick * Double(Self.ticksPerBar)
     }
 
     // MARK: Control-thread API
@@ -247,8 +281,9 @@ final class LiminalDSPCore: @unchecked Sendable {
         publishParams()
     }
 
-    /// Queue a new arpeggio pattern. Picked up by the render thread and
-    /// applied at the next sequencer step boundary.
+    /// Queue a new generated scene (key/progression/voicing/melody motif,
+    /// see `PatternGenerator.randomScene`). Picked up by the render thread
+    /// and applied at the next bar boundary (see `SceneSequencer`).
     func setPattern(_ pattern: ArpeggioPattern) {
         arpBox.publish(ValueBox(pattern))
     }
@@ -260,13 +295,12 @@ final class LiminalDSPCore: @unchecked Sendable {
         drumBox.publish(ValueBox(LoopSwapPayload(pattern: pattern, buffer: buffer)))
     }
 
-    /// Queue a new bassline rhythm/note pattern. Picked up by the render
-    /// thread and applied at the next tick (see `BassSequencer`). Note
-    /// pitches are scale-degree ROLES resolved against whatever the CURRENT
-    /// `ArpeggioPattern`'s root+scale is at trigger time (see
-    /// `BasslineGenerator.resolveBassMIDI` and `doTick` below) -- so the
-    /// bassline is always in the current key with no separate "refresh"
-    /// step needed when the melody's key changes.
+    /// Queue a new sub-bass movement variation. Picked up by the render
+    /// thread and applied at the next bar boundary (see `BassSequencer`).
+    /// Pitches are never stored here -- they're resolved live against
+    /// whatever the CURRENT scene's chord root is at trigger time (see
+    /// `doTick` below), so the sub is always in the current key with no
+    /// separate "refresh" step needed when the scene changes.
     func setBassPattern(_ pattern: BasslinePattern) {
         bassBox.publish(ValueBox(pattern))
     }
@@ -294,7 +328,7 @@ final class LiminalDSPCore: @unchecked Sendable {
         let arpRef = arpBox.read()
         if arpRef !== lastSeenArpRef {
             lastSeenArpRef = arpRef
-            arpSeq.queuePatternSwap(arpRef.value)
+            sceneSeq.queueSceneSwap(arpRef.value)
         }
         let drumRef = drumBox.read()
         if drumRef !== lastSeenDrumRef {
@@ -341,7 +375,8 @@ final class LiminalDSPCore: @unchecked Sendable {
             _ = smColor.next()
             _ = smBassColor.next()
 
-            let (synthL, synthR) = voiceBank.nextSample()
+            let (melL, melR) = voiceBank.nextSample()
+            let (padL, padR) = padBank.nextSample()
             let loopRaw: Float = activeTempoUsesLoop ? loopPlayer.nextSample(rate: speedMult) : 0
             let drumMono = loopLowpass.process(loopRaw, coeff: loopLowpassCoeff) * drumGain
             // Bass ticks on the SAME shared clock regardless of `bassEnabled`
@@ -349,8 +384,18 @@ final class LiminalDSPCore: @unchecked Sendable {
             // so re-enabling it never needs a resync.
             let bassMono = bassVoice.nextSample(sampleRate: sampleRate) * bassGain
 
-            var left = synthL + drumMono + bassMono
-            var right = synthR + drumMono + bassMono
+            // Breathing (SPEC.md Addendum 3): a smooth, tempo-synced gain
+            // swell on pads+bass ONLY -- the melody floats above, un-ducked.
+            // See `breathBarStartSample`/`breathBarLengthSamples`, recomputed
+            // once per breathing period in `doTick`.
+            let breathPhase = Float(clamp(
+                (Double(elapsedSamples) - Double(breathBarStartSample)) / max(1, breathBarLengthSamples), 0, 1))
+            let breathGain = breathingGainLinear(phase: breathPhase, depthDB: Self.breathingDepthDB)
+            let padBassL = (padL + bassMono) * breathGain
+            let padBassR = (padR + bassMono) * breathGain
+
+            var left = melL + padBassL + drumMono
+            var right = melR + padBassR + drumMono
 
             left = wowL.process(left, depth: age)
             right = wowR.process(right, depth: age)
@@ -376,10 +421,11 @@ final class LiminalDSPCore: @unchecked Sendable {
 
     private func doTick(releaseScale: Float, colorValue: Float, bassColorValue: Float,
                          waveform: LiminalWaveform, speedMult: Float) {
-        // Bar boundary: every 16 ticks (see `ticksPerBar`). Loop swaps and
-        // the drums-enabled tempo switch are only ever applied here, so a
-        // change mid-bar never yanks the shared tick clock or the loop's
-        // sample cursor out from under audio already in flight -- the next
+        // Bar boundary: every 16 ticks (see `ticksPerBar`). Loop swaps, the
+        // drums-enabled tempo switch, and scene (chord/melody) swaps are
+        // only ever applied here, so a change mid-bar never yanks the
+        // shared tick clock, the loop's sample cursor, or an in-flight
+        // chord swell out from under audio already in flight -- the next
         // bar always starts clean and phase-aligned.
         if globalTickIndex % Self.ticksPerBar == 0 {
             let wasLoopTempo = activeTempoUsesLoop
@@ -391,46 +437,80 @@ final class LiminalDSPCore: @unchecked Sendable {
                 // cursor happened to be left.
                 loopPlayer.resetCursor()
             }
+
+            // A freshly regenerated scene always restarts its progression
+            // at chord 0 / its melody motif at phrase 0 (see `sceneStartTick`
+            // doc comment) rather than resuming mid-cycle against the old
+            // scene's tick position.
+            if sceneSeq.applyPendingSwapAtBarBoundary() {
+                sceneStartTick = globalTickIndex
+            }
+
+            let scene = sceneSeq.activeScene
+            let barCount = max(1, scene.progression.count)
+            let barIndexInCycle = ((globalTickIndex - sceneStartTick) / Self.ticksPerBar) % barCount
+            let chord = scene.progression[barIndexInCycle]
+            // The chord crossfade IS this call: `PadVoiceBank.startChord`
+            // releases whatever was sustaining from the previous bar's
+            // chord (long release) while triggering fresh voices for this
+            // bar's chord (slow attack) -- see `PadVoice.swift`.
+            padBank.startChord(tones: chord.tones,
+                                velocity: rng.nextFloat(in: 0.55...0.75),
+                                color: colorValue,
+                                releaseMsRange: 2_000...4_000,
+                                rng: &rng)
         }
 
-        if let arpStep = arpSeq.advanceTick(globalTickIndex: globalTickIndex) {
-            // No rests/holds anymore -- every step is its own note-on
-            // (see PatternGenerator.swift / the SPEC.md addendum).
-            voiceBank.noteOn(midiNote: arpStep.midiNote,
-                              velocity: arpStep.velocity,
-                              attackRange: 20...80,
-                              releaseRange: 500...1500,
+        // Sparse melody: a precomputed lookup table indexed by tick offset
+        // within the scene's melody cycle -- no per-tick music theory, just
+        // an array read (see `MelodyMotif.lookup`). Long slow attack/release
+        // so notes feel like they're floating rather than plucked.
+        let scene = sceneSeq.activeScene
+        let cycleTicks = max(1, scene.melodyMotif.cycleTicks)
+        let melodyTick = ((globalTickIndex - sceneStartTick) % cycleTicks + cycleTicks) % cycleTicks
+        if let event = scene.melodyMotif.lookup[melodyTick] {
+            voiceBank.noteOn(midiNote: event.midiNote,
+                              velocity: event.velocity,
+                              attackRange: 400...1_000,
+                              releaseRange: 1_500...3_000,
                               releaseScale: releaseScale,
                               color: colorValue,
                               waveform: waveform,
                               rng: &rng)
         }
 
-        // Bass always advances on this SAME shared tick clock (never an
-        // independent tempo) -- see `BassSequencer`. Note pitches are
-        // resolved against `arpSeq.activePattern`'s CURRENT root+scale
-        // right here at trigger time, so the bassline is always in tune
-        // with whatever key the melody is currently in, even immediately
-        // after a `regenerateMelody()` key change (no caching of absolute
-        // bass pitches -- see `BasslinePattern.swift`).
-        if let bassStep = bassSeq.advanceTick() {
-            switch bassStep.kind {
-            case .rest:
-                bassVoice.noteOff(releaseMs: 220, sampleRate: sampleRate)
-            case .hold:
-                break // keep sustaining whatever's currently sounding
-            case .note(let role):
-                let key = arpSeq.activePattern
-                let midi = BasslineGenerator.resolveBassMIDI(role: role,
-                                                               rootMIDI: key.rootMIDI,
-                                                               intervals: key.scale.intervals,
-                                                               octaveShift: bassSeq.activePattern.octaveShift)
-                bassVoice.noteOn(midiNote: midi,
-                                  velocity: bassStep.velocity,
-                                  sampleRate: sampleRate,
-                                  color: bassColorValue,
-                                  rng: &rng)
-            }
+        // Sub-bass: always advances on this SAME shared tick clock (never
+        // an independent tempo) -- see `BassSequencer`. Pitch is resolved
+        // against the CURRENT bar's chord root right here at trigger time
+        // (never a cached/stale pitch), so the sub is always in tune with
+        // whatever chord is currently sounding, even immediately after a
+        // `regenerateMelody()` scene change.
+        let barCount = max(1, scene.progression.count)
+        let tickInBar = globalTickIndex % Self.ticksPerBar
+        let barIndexInCycle = ((globalTickIndex - sceneStartTick) / Self.ticksPerBar) % barCount
+        switch bassSeq.advanceTick(barIndexInCycle: barIndexInCycle, tickInBar: tickInBar) {
+        case .none:
+            break // keep sustaining whatever's currently sounding
+        case .note(let semitoneOffset):
+            let chordRootMIDI = scene.progression[barIndexInCycle].rootMIDI
+            let midi = chordRootMIDI - 12 + semitoneOffset // one octave below the pad root
+            bassVoice.noteOn(midiNote: midi,
+                              velocity: rng.nextFloat(in: 0.55...0.8),
+                              sampleRate: sampleRate,
+                              color: bassColorValue,
+                              rng: &rng)
+        }
+
+        // Breathing period boundary: recomputed at each 16- or 8-tick
+        // period edge (see `activeBreathingPeriodTicks`) using the CURRENT
+        // tempo, so the swell tracks SPEED/drum-tempo changes smoothly
+        // without ever discontinuously jumping mid-swell.
+        if globalTickIndex % activeBreathingPeriodTicks == 0 {
+            activeBreathingPeriodTicks = activeTempoUsesLoop ? Self.ticksPerBar / 2 : Self.ticksPerBar
+            let bpm = activeTempoUsesLoop ? Double(max(1, loopPlayer.bpm)) : baseMelodyBPM
+            let samplesPerTick = (sampleRate * 60.0 / (bpm * 4.0)) / Double(speedMult)
+            breathBarStartSample = elapsedSamples
+            breathBarLengthSamples = samplesPerTick * Double(activeBreathingPeriodTicks)
         }
 
         globalTickIndex += 1

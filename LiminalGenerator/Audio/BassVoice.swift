@@ -2,21 +2,22 @@
 //  BassVoice.swift
 //  LiminalGenerator
 //
-//  Monophonic bassline voice: a lightly detuned pair of oscillators fixed
-//  to a warm waveform (triangle -- NOT the user-selectable `LiminalWaveform`,
-//  per SPEC.md addendum 2), its OWN independent 24dB/octave lowpass driven
-//  by `bassColor` (same log-mapping design as the melody's COLOR, see
-//  `synthColorCutoffHz` in DSPMath.swift), and a proper attack/SUSTAIN/
-//  release envelope (unlike `SynthVoice`'s attack/release-only pluck) so
-//  `BasslinePattern`'s held/tied ".hold" steps genuinely sustain the note
-//  rather than re-triggering or falling silent.
+//  Sub-bass voice (SPEC.md Addendum 3): a lightly detuned pair of FIXED
+//  SINE oscillators (was triangle pre-Addendum-3 -- always fixed, NOT the
+//  user-selectable `LiminalWaveform`), its OWN independent 24dB/octave
+//  lowpass driven by `bassColor` (same log-mapping design as the melody/pad
+//  COLOR, see `synthColorCutoffHz` in DSPMath.swift), and a proper
+//  attack/SUSTAIN/release envelope so a bar-long "hold" genuinely sustains
+//  the note rather than re-triggering or falling silent, with a slow
+//  attack that lets the sub swell in under the pad.
 //
-//  Note lifecycle, driven by `LiminalDSPCore`'s `BassSequencer`:
-//    - `.note(role)` step -> `noteOn` (retriggers even mid-sustain; the
-//      attack ramps from the CURRENT envelope level rather than 0, so a
-//      back-to-back retrigger with no intervening rest is click-free).
-//    - `.hold` step -> nothing is called; the voice keeps sustaining.
-//    - `.rest` step -> `noteOff`, which starts the release tail.
+//  Note lifecycle, driven by `LiminalDSPCore`'s `BassSequencer`
+//  (`BasslinePattern.swift`): every `.note` event (bar downbeat,
+//  re-articulation, or a passing tone near a bar transition) -> `noteOn`
+//  (retriggers even mid-sustain; the attack ramps from the CURRENT envelope
+//  level rather than 0, so a back-to-back retrigger with no intervening
+//  rest is click-free). The sub otherwise just keeps sustaining -- there is
+//  no rest/silence variation in the Addendum 3 bass (see `BassBarAction`).
 //
 
 import Foundation
@@ -61,9 +62,9 @@ struct BassVoice {
                           color: Float,
                           rng: inout XorshiftRNG) {
         let baseFreq = midiToFrequency(Float(midiNote))
-        // Subtler detune than the melody voice -- bass wants to stay solid
-        // and centered, just a touch of warmth/width.
-        let detuneCents = rng.nextFloat(in: 2...5)
+        // Very subtle detune -- a deep sub-bass wants to stay solid, mono-
+        // compatible, and centered; just a hint of width, not chorus.
+        let detuneCents = rng.nextFloat(in: 1...3)
         let ratio = pow(2.0, detuneCents / 1200.0)
         freq1 = Float(baseFreq / ratio)
         freq2 = Float(baseFreq * ratio)
@@ -79,7 +80,10 @@ struct BassVoice {
         velocityGain = clamp(velocity, 0, 1)
         sustainLevel = rng.nextFloat(in: 0.8...0.95)
 
-        let attackMs = rng.nextFloat(in: 15...45)
+        // Slow attack swell (SPEC.md Addendum 3), much longer than the old
+        // walking-bassline's punchy 15-45ms -- the sub should rise UNDER
+        // the pad, not stab.
+        let attackMs = rng.nextFloat(in: 250...600)
         attackTotalSamples = max(1, Int(attackMs / 1000 * Float(sampleRate)))
         attackCounter = 0
         attackStart = envLevel // ramp from wherever we are -- click-free retrigger
@@ -129,9 +133,9 @@ struct BassVoice {
         phase2 += freq2 / Float(sampleRate)
         if phase2 >= 1 { phase2 -= 1 }
 
-        // Fixed warm waveform -- never the user-selectable melody waveform.
-        let osc1 = oscillatorSample(waveform: .triangle, phase: phase1)
-        let osc2 = oscillatorSample(waveform: .triangle, phase: phase2)
+        // Fixed sine sub -- never the user-selectable melody waveform.
+        let osc1 = oscillatorSample(waveform: .sine, phase: phase1)
+        let osc2 = oscillatorSample(waveform: .sine, phase: phase2)
         let raw = (osc1 + osc2) * 0.5
 
         let envNorm = sustainLevel > 0.0001 ? clamp(envLevel / sustainLevel, 0, 1) : 0
