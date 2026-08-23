@@ -95,6 +95,7 @@ final class AudioEngineController: ObservableObject {
         currentPattern = pattern
         currentBeat = beat
         dsp = LiminalDSPCore(pattern: pattern, beat: beat,
+                              loopBuffer: LoopLoader.buffers[beat.loopIndex],
                               space: 0.55, age: 0.4,
                               drumsEnabled: false, drumLevel: 0.65,
                               sampleRate: Self.sampleRate)
@@ -130,10 +131,12 @@ final class AudioEngineController: ObservableObject {
         dsp.setPattern(pattern)
     }
 
+    /// Picks a random loop that is NEVER the currently-active one (guaranteed
+    /// change).
     func regenerateBeat() {
-        let beat = PatternGenerator.randomDrumPattern()
+        let beat = PatternGenerator.randomDrumPattern(excludingLoopIndex: currentBeat.loopIndex)
         currentBeat = beat
-        dsp.setBeat(beat)
+        dsp.setBeat(beat, buffer: LoopLoader.buffers[beat.loopIndex])
     }
 
     // MARK: Offline render
@@ -148,6 +151,7 @@ final class AudioEngineController: ObservableObject {
                         fadeOut: TimeInterval,
                         progress: @escaping @Sendable (Double) -> Void) async throws -> URL {
         let seed = OfflineRenderSeed(pattern: currentPattern, beat: currentBeat,
+                                      loopBuffer: LoopLoader.buffers[currentBeat.loopIndex],
                                       space: space, age: age,
                                       drumsEnabled: drumsEnabled, drumLevel: drumLevel)
         return try await Self.performOfflineRender(seed: seed,
@@ -172,6 +176,7 @@ final class AudioEngineController: ObservableObject {
         let format = AVAudioFormat(standardFormatWithSampleRate: sampleRate, channels: 2)!
 
         let dsp = LiminalDSPCore(pattern: seed.pattern, beat: seed.beat,
+                                  loopBuffer: seed.loopBuffer,
                                   space: seed.space, age: seed.age,
                                   drumsEnabled: seed.drumsEnabled, drumLevel: seed.drumLevel,
                                   sampleRate: sampleRate)
@@ -357,6 +362,7 @@ final class AudioEngineController: ObservableObject {
 private struct OfflineRenderSeed: Sendable {
     let pattern: ArpeggioPattern
     let beat: DrumPattern
+    let loopBuffer: LoopBuffer
     let space: Float
     let age: Float
     let drumsEnabled: Bool

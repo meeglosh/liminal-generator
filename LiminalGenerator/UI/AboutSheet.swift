@@ -48,8 +48,18 @@ struct AboutSheet: View {
                         creditSection(
                             title: "AUDIO",
                             lines: [
-                                "Procedural synth arpeggios + optional lo-fi",
-                                "drum machine, generated entirely on-device.",
+                                "Procedural synth arpeggios, generated",
+                                "entirely on-device, with optional lo-fi",
+                                "drum loops layered in.",
+                            ]
+                        )
+
+                        creditSection(
+                            title: "DRUM LOOPS",
+                            lines: [
+                                "10 lo-fi hip-hop drum loops by holizna,",
+                                "via Freesound.org. Licensed CC0 1.0",
+                                "(public domain).",
                             ]
                         )
                     }

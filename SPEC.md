@@ -6,7 +6,7 @@ over swipeable VHS-filtered images of empty spaces, and renders shareable 2-minu
 ## Platform
 - iPhone only, portrait-locked, iOS 17.0 deployment target, SwiftUI, no third-party dependencies.
 - Xcode project generated with XcodeGen (`project.yml` at repo root → `LiminalGenerator.xcodeproj`).
-- Bundle id: `com.meeglosh.LiminalGenerator`. App name: "Liminal Generator". Swift 5 language mode.
+- Bundle id: `com.gapco.LiminalGenerator` (GAPCO team XM2SC5YZ8C). App name: "Liminal Generator". Swift 5 language mode.
 - Source root: `LiminalGenerator/` with subfolders `App/`, `Audio/`, `UI/`, `Render/`, `Resources/`.
 
 ## Design system (follow img/stitch_liminal_space_generator/liminal_analog/DESIGN.md exactly)
@@ -36,8 +36,8 @@ over swipeable VHS-filtered images of empty spaces, and renders shareable 2-minu
      Readout row: `SEQ: A-C-E-G` (note names of the pattern) and `BPM: 82`.
    - **GLOBAL ENV card**: SPACE slider (label right: REV_DECAY, scale 0–10) and AGE slider (WOW_FLUTTER, 0–10).
      Both affect the entire mix (synth + drums).
-   - **DRUMS card**: "ENABLE TR-808" toggle; when on, reveals LEVEL slider (-INF…+6dB) and dice button
-     "GENERATE BEAT".
+   - **DRUMS card**: "ENABLE LOFI BEATS" toggle; when on, reveals LEVEL slider (-INF…+6dB), dice button
+     "GENERATE BEAT", and a readout row (`LOOP: <displayName>` / `BPM: <loop bpm>`) below it.
    - **RENDER & SHARE** full-width red bar button at bottom.
 3. **Render screen** (modal, matches share_clip mockup): "ENCODING ANALOG SIGNAL▮" header, SRC: VTR_01 /
    DEST: MEMORY row, progress bar as ASCII/segments with `REC \ ///` spinner, terminal log lines appearing as
@@ -47,7 +47,7 @@ over swipeable VHS-filtered images of empty spaces, and renders shareable 2-minu
 ## Audio architecture (`Audio/`)
 All DSP is plain-Swift, sample-based, shared verbatim between realtime and offline rendering.
 
-- `LiminalDSPCore`: owns `SynthVoice` bank, `ArpeggioSequencer`, `DrumMachine`, `WowFlutterProcessor`,
+- `LiminalDSPCore`: owns `SynthVoice` bank, `ArpeggioSequencer`, `LoopPlayer`, `WowFlutterProcessor`,
   `TapeHiss`. Single entry `render(into: UnsafeMutablePointer<Float> interleaved stereo, frames: Int)`.
   Sample-accurate step clock inside render (no Timers for audio). Thread-safe parameter setters (atomics or
   lock-free snapshot struct).
@@ -63,13 +63,35 @@ All DSP is plain-Swift, sample-based, shared verbatim between realtime and offli
     optionally implied), occasional rests and held notes; velocity variation.
   - Synth voice: 2 detuned soft oscillators (triangle/sine mix) + gentle lowpass, slow attack (20–80ms),
     long release (0.5–1.5s), subtle chorus-y detune. Warm, pad-like pluck — never harsh.
-  - `DrumPattern` generator: lo-fi 808-style kick (sine w/ pitch envelope), snare (noise+tone, beats 2/4-ish
-    with variation), closed hats (filtered noise, swung 8ths/16ths), sparse patterns, humanized velocities.
-    Drums are lo-fi: bit-reduced/lowpassed slightly.
+  - `DrumPattern` is loop-selection metadata (`loopIndex`, `displayName`, `bpm`), not a synthesized
+    pattern: drums are **playback of one of 10 bundled CC0 lo-fi hip-hop loops**
+    (`Resources/Loops/*.wav`, mono 44.1kHz s16, bar-exact 4 bars each, manifest in `LoopManifest.swift`)
+    rather than synthesized 808 hits. `regenerateBeat()` picks a random loop that is never the currently
+    active one (guaranteed change). `LoopPlayer` (in `LoopPlayer.swift`, replacing the old
+    `DrumMachine.swift`) decodes the active loop's WAV into a Float32 buffer off the render thread
+    (`LoopLoader`, decoded once per process and cached) and plays it back inside `LiminalDSPCore`'s
+    render loop with a sample-accurate cursor and seamless wraparound (the loop files are pre-declicked
+    at their bar boundary). The loop signal is summed into the same bus the old synthesized drums used,
+    so it passes through the shared wow/flutter, tape hiss, age-lowpass, reverb send, and final soft-clip
+    exactly like before — SPACE/AGE keep affecting drums the same way. A light fixed ~8.5kHz lowpass sits
+    on the loop bus for gentle lo-fi consistency; no bit-reduction or other heavy processing (the loops
+    are already lo-fi).
+  - **Tempo-sync rule**: the shared 16th-note tick clock (drives both the arp and the loop's start/swap
+    timing) normally runs at the arp pattern's own bpm. While drums are enabled, it instead runs at the
+    active loop's bpm — so the arpeggio's tempo follows the loop. Enabling/disabling drums, and any loop
+    swap (`regenerateBeat()` or a fresh loop picked by `renderOffline`'s seed), is applied only at the
+    next **bar boundary** (every 16 ticks — a full cycle of an 8- or 16-step arp pattern, and one of the
+    loop's own 4 bars once tempo-locked): the loop's sample cursor resets to 0 there so its downbeat lands
+    exactly on the bar, keeping the arp's bar phase and the loop start phase-aligned. When drums are
+    disabled, the arpeggio reverts to its own pattern bpm. `regenerateMelody()` while drums are on keeps
+    the melody's notes/scale but the effective bpm stays the loop's (the new arp pattern's own random bpm
+    field is simply unused while `drumsEnabled`).
 - `ArpeggioPattern.displaySeq` → e.g. "A-C-E-G" (first 4 distinct pitch classes) for the UI readout; also `bpm`.
 - **Offline render**: `renderOffline(duration: 120s, fadeIn: 3s, fadeOut: 5s, progress: (Double)->Void) async throws -> URL`
   using AVAudioEngine `enableManualRenderingMode(.offline)` with an identical graph + same DSP core seeded
-  with the *current* patterns/params. Output: 44.1kHz stereo CAF/WAV in temp dir. Must be cancellable.
+  with the *current* patterns/params, including the *same* decoded `LoopBuffer` instance as the active
+  loop (bit-identical drum audio in the rendered MP4 vs. live playback). Output: 44.1kHz stereo CAF/WAV in
+  temp dir. Must be cancellable.
 
 ## Video/share pipeline (`Render/`)
 - `ClipRenderer`: builds 120s portrait MP4, 848×1264 (or 720×1080 if perf requires; keep source aspect 2:3),
@@ -93,6 +115,9 @@ All DSP is plain-Swift, sample-based, shared verbatim between realtime and offli
   share_clip, liminal_analog folders and the DO-NOT-USE folder) into asset catalog as `liminal_01`–`liminal_24`,
   with a manifest enum. App icon from `img/App-Icon.png` (single-size 1024 icon). Space Mono Regular/Bold TTFs
   bundled + UIAppFonts. Launch screen: plain #0e0e0e.
+- `Resources/Loops/`: 10 bundled CC0 lo-fi hip-hop drum loops (`loop_<bpm>_<slug>.wav`, mono 44.1kHz s16,
+  bar-exact 4 bars each), manifest in `LoopManifest.swift` (`LoopLibrary.all: [LoopInfo]` with
+  `fileName`/`bpm`/`bars`/`displayName`). Full source/license record per file in `LICENSES-LOOPS.md`.
 
 ## Pinned API contract (Phase 2 — all agents conform EXACTLY; do not rename)
 Note: the image library shipped with 23 images (`liminal_01`…`liminal_23`), not 24. `ImageLibrary` in
@@ -104,7 +129,11 @@ struct ArpeggioPattern {            // + whatever internals the generator needs
     var displaySeq: String          // e.g. "A-C-E-G"
     var bpm: Int
 }
-struct DrumPattern { /* internals */ }
+struct DrumPattern {                 // loop selection, not a synthesized pattern (see Audio architecture)
+    let loopIndex: Int
+    let displayName: String
+    let bpm: Int
+}
 
 @MainActor
 final class AudioEngineController: ObservableObject {

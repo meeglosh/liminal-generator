@@ -4,10 +4,11 @@
 //
 //  DEBUG-only smoke-test hook for the render pipeline, launched via env
 //  var "LG_AUTORENDER"="1" (optionally "LG_RENDER_SECONDS"="8" to render a
-//  short clip instead of the full 120s). Drives `ClipRenderer` end-to-end
-//  with no UI interaction and prints progress/result to stdout so it can
-//  be captured via `xcrun simctl launch --console-pty` / `simctl spawn
-//  ... log stream`.
+//  short clip instead of the full 120s, and "LG_AUTORENDER_DRUMS"="1" to
+//  enable drums before rendering -- audio verification hook, DEBUG-only).
+//  Drives `ClipRenderer` end-to-end with no UI interaction and prints
+//  progress/result to stdout so it can be captured via `xcrun simctl launch
+//  --console-pty` / `simctl spawn ... log stream`.
 //
 //  This lives entirely in Render/ (no edits to MainView/App files owned by
 //  other agents). Swift disallows overriding the Objective-C `+load`/
@@ -36,6 +37,10 @@ enum AutoRenderDebugHarness {
         print("[LG_AUTORENDER] starting harness duration=\(seconds)s")
 
         let engine = AudioEngineController()
+        if ProcessInfo.processInfo.environment["LG_AUTORENDER_DRUMS"] == "1" {
+            engine.drumsEnabled = true
+            print("[LG_AUTORENDER] drums enabled via LG_AUTORENDER_DRUMS, loop=\(engine.currentBeat.displayName) bpm=\(engine.currentBeat.bpm)")
+        }
         let imageName = ImageLibrary[Int.random(in: 0..<ImageLibrary.count)].assetName
         let timestamp = VHSTimestamp.random()
         let config = ClipRenderer.Config(duration: seconds,

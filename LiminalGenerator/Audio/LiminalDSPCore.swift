@@ -32,7 +32,7 @@ final class LiminalDSPCore: @unchecked Sendable {
 
     private let paramBox: SnapshotBox<ParamSnapshot>
     private let arpBox: SnapshotBox<ValueBox<ArpeggioPattern>>
-    private let drumBox: SnapshotBox<ValueBox<DrumPattern>>
+    private let drumBox: SnapshotBox<ValueBox<LoopSwapPayload>>
 
     // Control-thread-only shadow copies, used to build the next published
     // ParamSnapshot incrementally. Never touched by the render thread.
@@ -46,7 +46,7 @@ final class LiminalDSPCore: @unchecked Sendable {
     private var rng: XorshiftRNG
     private let voiceBank: SynthVoiceBank
     private let arpSeq: ArpeggioSequencer
-    private let drums: DrumMachine
+    private let loopPlayer: LoopPlayer
     private var wowL: WowFlutterProcessor
     private var wowR: WowFlutterProcessor
     private var hissL: TapeHiss
@@ -54,23 +54,43 @@ final class LiminalDSPCore: @unchecked Sendable {
     private var ageLPL = AgeLowpass()
     private var ageLPR = AgeLowpass()
 
+    // Light fixed lowpass on the summed loop bus (~8.5kHz) -- gentle lo-fi
+    // consistency without over-processing loops that are already lo-fi.
+    private var loopLowpass = OnePoleLowpass()
+    private let loopLowpassCoeff: Float
+
     private var smSpace: SmoothedParam
     private var smAge: SmoothedParam
     private var smDrumGain: SmoothedParam
 
     private var lastSeenArpRef: ValueBox<ArpeggioPattern>?
-    private var lastSeenDrumRef: ValueBox<DrumPattern>?
+    private var lastSeenDrumRef: ValueBox<LoopSwapPayload>?
 
     private var elapsedSamples: Int64 = 0
     private var nextTickSample: Int64 = 0
     private var globalTickIndex: Int = 0
 
+    // Tempo-sync state (render-thread-only). The shared 16th-note tick grid
+    // normally runs at the arp pattern's own bpm; while drums are enabled it
+    // instead runs at the active loop's bpm. To keep loop-start and
+    // arpeggio-pattern-cycle boundaries phase-aligned, the switch (and any
+    // queued loop swap) is only ever applied at a "bar" boundary -- every 16
+    // ticks, which is exactly one full cycle of an 8- or 16-step arp pattern
+    // (see `ArpeggioSequencer.ticksPerStep`) and matches the loop files'
+    // own 4-bar structure once tempo-locked.
+    private static let ticksPerBar = 16
+    private var activeTempoUsesLoop: Bool
+    private var pendingDrumsEnabledForTempo: Bool
+
     /// - Parameters:
-    ///   - pattern/beat: initial patterns (also used as the "seed" for a
-    ///     freshly constructed offline-render core).
+    ///   - pattern/beat/loopBuffer: initial patterns + the already-decoded
+    ///     loop buffer matching `beat` (also used as the "seed" for a
+    ///     freshly constructed offline-render core -- passing the SAME
+    ///     `LoopBuffer` instance guarantees bit-identical drum audio).
     ///   - space/age/drumsEnabled/drumLevel: initial parameter values.
     init(pattern: ArpeggioPattern,
          beat: DrumPattern,
+         loopBuffer: LoopBuffer,
          space: Float,
          age: Float,
          drumsEnabled: Bool,
@@ -85,7 +105,7 @@ final class LiminalDSPCore: @unchecked Sendable {
 
         paramBox = SnapshotBox(ParamSnapshot(space: space, age: age, drumsEnabled: drumsEnabled, drumLevel: drumLevel))
         let arpValueBox = ValueBox(pattern)
-        let drumValueBox = ValueBox(beat)
+        let drumValueBox = ValueBox(LoopSwapPayload(pattern: beat, buffer: loopBuffer))
         arpBox = SnapshotBox(arpValueBox)
         drumBox = SnapshotBox(drumValueBox)
         lastSeenArpRef = arpValueBox
@@ -94,16 +114,20 @@ final class LiminalDSPCore: @unchecked Sendable {
         rng = XorshiftRNG(seed: 0xC0FFEE_1234_5678)
         voiceBank = SynthVoiceBank(voiceCount: 10, sampleRate: sampleRate)
         arpSeq = ArpeggioSequencer(initialPattern: pattern)
-        drums = DrumMachine(initialPattern: beat, sampleRate: sampleRate)
+        loopPlayer = LoopPlayer(initialPattern: beat, initialBuffer: loopBuffer)
         wowL = WowFlutterProcessor(sampleRate: sampleRate, phaseOffset: 0)
         wowR = WowFlutterProcessor(sampleRate: sampleRate, phaseOffset: 0.27)
         hissL = TapeHiss(sampleRate: sampleRate, seed: 0x1111_2222_3333_4444)
         hissR = TapeHiss(sampleRate: sampleRate, seed: 0x5555_6666_7777_8888)
+        loopLowpassCoeff = OnePoleLowpass.coefficient(cutoffHz: 8_500, sampleRate: sampleRate)
 
         smSpace = SmoothedParam(initial: space, timeConstant: 0.02, sampleRate: sampleRate)
         smAge = SmoothedParam(initial: age, timeConstant: 0.02, sampleRate: sampleRate)
         smDrumGain = SmoothedParam(initial: drumsEnabled ? Self.drumGainLinear(drumLevel) : 0,
                                     timeConstant: 0.006, sampleRate: sampleRate)
+
+        activeTempoUsesLoop = drumsEnabled
+        pendingDrumsEnabledForTempo = drumsEnabled
     }
 
     // MARK: Control-thread API
@@ -134,9 +158,11 @@ final class LiminalDSPCore: @unchecked Sendable {
         arpBox.publish(ValueBox(pattern))
     }
 
-    /// Queue a new drum pattern. Applied at the next 16th-note step boundary.
-    func setBeat(_ pattern: DrumPattern) {
-        drumBox.publish(ValueBox(pattern))
+    /// Queue a new loop selection (pattern metadata + its already-decoded
+    /// buffer, decoded off the render thread by the caller). Applied at the
+    /// next bar boundary -- see the tempo-sync note above `activeTempoUsesLoop`.
+    func setBeat(_ pattern: DrumPattern, buffer: LoopBuffer) {
+        drumBox.publish(ValueBox(LoopSwapPayload(pattern: pattern, buffer: buffer)))
     }
 
     // MARK: Realtime render entry point
@@ -152,6 +178,7 @@ final class LiminalDSPCore: @unchecked Sendable {
         smAge.setTarget(snapshot.age)
         let drumGainTarget: Float = snapshot.drumsEnabled ? Self.drumGainLinear(snapshot.drumLevel) : 0
         smDrumGain.setTarget(drumGainTarget)
+        pendingDrumsEnabledForTempo = snapshot.drumsEnabled
 
         let arpRef = arpBox.read()
         if arpRef !== lastSeenArpRef {
@@ -161,13 +188,12 @@ final class LiminalDSPCore: @unchecked Sendable {
         let drumRef = drumBox.read()
         if drumRef !== lastSeenDrumRef {
             lastSeenDrumRef = drumRef
-            drums.queuePatternSwap(drumRef.value)
+            loopPlayer.queueSwap(drumRef.value)
         }
 
         // Buffer-rate derived values (recomputed once per callback --
         // imperceptibly coarse for "gentle" characteristics, avoids
         // per-sample transcendental calls).
-        let decayScale = 1 + 0.25 * smSpace.current
         let releaseScale = 0.85 + 0.3 * smSpace.current
         let ageLPCoeff = AgeLowpass.coefficient(age: smAge.current, sampleRate: sampleRate)
 
@@ -182,7 +208,8 @@ final class LiminalDSPCore: @unchecked Sendable {
             _ = smSpace.next()
 
             let (synthL, synthR) = voiceBank.nextSample()
-            let drumMono = drums.nextSample(sampleRate: sampleRate, gain: drumGain, decayScale: decayScale)
+            let loopRaw: Float = activeTempoUsesLoop ? loopPlayer.nextSample() : 0
+            let drumMono = loopLowpass.process(loopRaw, coeff: loopLowpassCoeff) * drumGain
 
             var left = synthL + drumMono
             var right = synthR + drumMono
@@ -210,6 +237,23 @@ final class LiminalDSPCore: @unchecked Sendable {
     // MARK: Sequencer clock
 
     private func doTick(releaseScale: Float) {
+        // Bar boundary: every 16 ticks (see `ticksPerBar`). Loop swaps and
+        // the drums-enabled tempo switch are only ever applied here, so a
+        // change mid-bar never yanks the shared tick clock or the loop's
+        // sample cursor out from under audio already in flight -- the next
+        // bar always starts clean and phase-aligned.
+        if globalTickIndex % Self.ticksPerBar == 0 {
+            let wasLoopTempo = activeTempoUsesLoop
+            loopPlayer.applyPendingSwapAtBarBoundary()
+            activeTempoUsesLoop = pendingDrumsEnabledForTempo
+            if activeTempoUsesLoop && !wasLoopTempo {
+                // Just turned on (or turned back on): always restart the
+                // loop from its downbeat rather than resuming wherever the
+                // cursor happened to be left.
+                loopPlayer.resetCursor()
+            }
+        }
+
         if let arpStep = arpSeq.advanceTick(globalTickIndex: globalTickIndex) {
             if let note = arpStep.midiNote, !arpStep.hold {
                 voiceBank.noteOn(midiNote: note,
@@ -220,20 +264,18 @@ final class LiminalDSPCore: @unchecked Sendable {
                                   rng: &rng)
             }
         }
-        drums.advanceTick()
 
         globalTickIndex += 1
         scheduleNextTick()
     }
 
+    /// Effective tempo of the shared 16th-note tick clock: the active
+    /// loop's bpm while drums are enabled (tempo-synced to the loop, per the
+    /// bar-boundary rule above), otherwise the arp pattern's own bpm.
     private func scheduleNextTick() {
-        let bpm = Double(max(1, arpSeq.activePattern.bpm))
-        let baseSamplesPerTick = sampleRate * 60.0 / (bpm * 4.0)
-        let swing = Double(drums.swing)
-        let swingOffset = swing * baseSamplesPerTick * 0.33
-        let willBeOdd = (globalTickIndex % 2 == 1)
-        let delta = baseSamplesPerTick + (willBeOdd ? swingOffset : -swingOffset)
-        nextTickSample = elapsedSamples + Int64(max(1, delta.rounded()))
+        let bpm = Double(max(1, activeTempoUsesLoop ? loopPlayer.bpm : arpSeq.activePattern.bpm))
+        let samplesPerTick = sampleRate * 60.0 / (bpm * 4.0)
+        nextTickSample = elapsedSamples + Int64(max(1, samplesPerTick.rounded()))
     }
 
     private func publishParams() {

@@ -70,21 +70,17 @@ struct ArpeggioPattern: Sendable {
     var rootMIDI: Int
 }
 
-// MARK: - Drum pattern
+// MARK: - Drum pattern (loop selection)
 
-struct DrumStep: Sendable {
-    /// Velocity 0...1, or nil if that instrument doesn't hit on this step.
-    var kick: Float?
-    var snare: Float?
-    var hat: Float?
-}
-
+/// Pinned contract (do not rename): selects one of the bundled CC0 lo-fi
+/// loops in `Resources/Loops/` (see `LoopLibrary`) rather than describing a
+/// synthesized pattern. `loopIndex` indexes `LoopLibrary.all`; `displayName`
+/// and `bpm` are copied from the matching `LoopInfo` for cheap UI/tempo-sync
+/// access without threading `LoopLibrary` lookups everywhere.
 struct DrumPattern: Sendable {
-    /// Always 16 steps (one bar of 16th notes) -- shares the master tempo
-    /// with the currently active `ArpeggioPattern.bpm`.
-    var steps: [DrumStep]
-    /// 0...~0.15, delay applied to off-16th-note steps for a swung feel.
-    var swing: Float
+    let loopIndex: Int
+    let displayName: String
+    let bpm: Int
 }
 
 // MARK: - Generator
@@ -172,56 +168,27 @@ enum PatternGenerator {
         return names.joined(separator: "-")
     }
 
-    // MARK: Drums
+    // MARK: Drums (loop selection)
 
-    static func randomDrumPattern() -> DrumPattern {
+    /// Picks a random bundled loop. `excludingLoopIndex`, when non-nil,
+    /// guarantees the result never repeats that index (used by
+    /// `regenerateBeat()` for a guaranteed change) as long as the library
+    /// has more than one entry.
+    static func randomDrumPattern(excludingLoopIndex: Int? = nil) -> DrumPattern {
         var rng = SystemRandomNumberGenerator()
-        return randomDrumPattern(using: &rng)
+        return randomDrumPattern(excludingLoopIndex: excludingLoopIndex, using: &rng)
     }
 
-    static func randomDrumPattern<R: RandomNumberGenerator>(using rng: inout R) -> DrumPattern {
-        let stepCount = 16
-        var steps = [DrumStep](repeating: DrumStep(kick: nil, snare: nil, hat: nil), count: stepCount)
-
-        // Kick: always on the downbeat, sparse elsewhere, favoring beat
-        // boundaries (steps 0/4/8/12) over syncopated offbeats.
-        var lastKickStep = -4
-        for i in 0..<stepCount {
-            let isBeat = i % 4 == 0
-            let baseProb: Float = isBeat ? 0.42 : 0.08
-            let farEnough = (i - lastKickStep) >= 2
-            if i == 0 || (farEnough && Float.random(in: 0...1, using: &rng) < baseProb) {
-                steps[i].kick = Float.random(in: 0.75...1.0, using: &rng)
-                lastKickStep = i
+    static func randomDrumPattern<R: RandomNumberGenerator>(excludingLoopIndex: Int?,
+                                                              using rng: inout R) -> DrumPattern {
+        let count = LoopLibrary.all.count
+        var index = Int.random(in: 0..<count, using: &rng)
+        if let excludingLoopIndex, count > 1 {
+            while index == excludingLoopIndex {
+                index = Int.random(in: 0..<count, using: &rng)
             }
         }
-
-        // Snare: beats 2 & 4 (steps 4, 12) with slight variation, occasional ghost hit.
-        for anchor in [4, 12] {
-            if Float.random(in: 0...1, using: &rng) < 0.9 {
-                steps[anchor].snare = Float.random(in: 0.7...1.0, using: &rng)
-            } else {
-                let shifted = clamp(anchor + (Bool.random(using: &rng) ? 1 : -1), 0, stepCount - 1)
-                steps[shifted].snare = Float.random(in: 0.6...0.9, using: &rng)
-            }
-        }
-        if Float.random(in: 0...1, using: &rng) < 0.15 {
-            let ghost = Int.random(in: 0..<stepCount, using: &rng)
-            if steps[ghost].snare == nil {
-                steps[ghost].snare = Float.random(in: 0.25...0.45, using: &rng)
-            }
-        }
-
-        // Closed hats: sparse, mostly on the eighth-note grid, humanized velocity.
-        for i in 0..<stepCount {
-            let onEighth = i % 2 == 0
-            let prob: Float = onEighth ? 0.62 : 0.18
-            if Float.random(in: 0...1, using: &rng) < prob {
-                steps[i].hat = Float.random(in: 0.35...0.85, using: &rng)
-            }
-        }
-
-        let swing = Float.random(in: 0.0...0.12, using: &rng)
-        return DrumPattern(steps: steps, swing: swing)
+        let info = LoopLibrary.all[index]
+        return DrumPattern(loopIndex: index, displayName: info.displayName, bpm: info.bpm)
     }
 }

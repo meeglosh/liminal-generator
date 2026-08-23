@@ -3,8 +3,8 @@
 //  LiminalGeneratorUITests
 //
 //  One end-to-end flow test driving the whole app: splash -> play/pause ->
-//  regenerate melody -> adjust GLOBAL ENV sliders -> enable TR-808 & generate
-//  a beat -> render & share -> dismiss. Launches with
+//  regenerate melody -> adjust GLOBAL ENV sliders -> enable LOFI BEATS &
+//  generate a beat (LOOP readout changes) -> render & share -> dismiss. Launches with
 //  LG_RENDER_SECONDS=8 so `RenderScreen` renders a short clip instead of the
 //  full 120s (see RenderScreen.swift's `renderConfig()`), keeping the test
 //  fast without touching render logic quality.
@@ -101,7 +101,7 @@ final class LiminalGeneratorFlowTests: XCTestCase {
         // rather than relying on the `adjustable` accessibility trait).
         dragSlider(spaceSlider)
 
-        // MARK: 5. Enable TR-808 -> LEVEL slider + GENERATE BEAT appear
+        // MARK: 5. Enable LOFI BEATS -> LEVEL slider + GENERATE BEAT + LOOP readout appear
 
         let drumsToggle = app.buttons["drumsToggle"]
         scrollUntilHittable(drumsToggle, in: app)
@@ -109,13 +109,23 @@ final class LiminalGeneratorFlowTests: XCTestCase {
         drumsToggle.tap()
 
         let drumLevelSlider = app.otherElements["drumLevelSlider"]
-        XCTAssertTrue(drumLevelSlider.waitForExistence(timeout: 3), "LEVEL slider should appear once TR-808 is enabled")
+        XCTAssertTrue(drumLevelSlider.waitForExistence(timeout: 3), "LEVEL slider should appear once LOFI BEATS is enabled")
 
         let generateBeatButton = app.buttons["generateBeatButton"]
-        XCTAssertTrue(generateBeatButton.waitForExistence(timeout: 3), "GENERATE BEAT should appear once TR-808 is enabled")
+        XCTAssertTrue(generateBeatButton.waitForExistence(timeout: 3), "GENERATE BEAT should appear once LOFI BEATS is enabled")
+
+        let loopReadout = app.staticTexts["loopReadout"]
+        XCTAssertTrue(loopReadout.waitForExistence(timeout: 3), "LOOP readout should appear once LOFI BEATS is enabled")
+
+        // MARK: 6. Generate beat -> LOOP readout changes (regenerateBeat()
+        // guarantees a different loop every time, so a single tap always
+        // suffices -- no retry loop needed, unlike the melody readout).
 
         scrollUntilHittable(generateBeatButton, in: app)
+        let initialLoop = loopReadout.label
         generateBeatButton.tap()
+        let loopChanged = waitFor(timeout: 2) { loopReadout.label != initialLoop }
+        XCTAssertTrue(loopChanged, "LOOP readout should change after tapping GENERATE BEAT (loop selection never repeats). was=\(initialLoop) now=\(loopReadout.label)")
 
         // 04_drums_enabled.png doubles as the "full lower half" screenshot
         // (DRUMS card + GENERATE BEAT are the bottom of the scrollable

@@ -136,7 +136,12 @@ struct MainView: View {
 
                 Spacer()
 
-                Text("BPM: \(engine.currentPattern.bpm)")
+                // Effective bpm: while drums are on, the master step clock
+                // (and therefore the arp) is tempo-synced to the active
+                // loop's bpm -- see LiminalDSPCore's bar-boundary tempo
+                // switch. Show that, not the arp pattern's own (unused
+                // while drums are on) bpm.
+                Text("BPM: \(engine.drumsEnabled ? engine.currentBeat.bpm : engine.currentPattern.bpm)")
                     .foregroundColor(.liminalOnSurfaceVariant)
                     .accessibilityIdentifier("bpmReadout")
             }
@@ -173,7 +178,7 @@ struct MainView: View {
     private var drumsCardContent: some View {
         VStack(alignment: .leading, spacing: LiminalMetrics.stackMedium) {
             HStack {
-                Text("ENABLE TR-808")
+                Text("ENABLE LOFI BEATS")
                     .font(.spaceMono(size: 12))
                     .tracking(1)
                     .foregroundColor(.liminalTapeHiss)
@@ -203,6 +208,22 @@ struct MainView: View {
                         engine.regenerateBeat()
                     }
                     .accessibilityIdentifier("generateBeatButton")
+
+                    HStack {
+                        (Text("LOOP: ")
+                            .foregroundColor(.liminalOnSurfaceVariant)
+                            + Text(engine.currentBeat.displayName)
+                            .foregroundColor(.liminalCRTGreenDim))
+                            .accessibilityIdentifier("loopReadout")
+
+                        Spacer()
+
+                        Text("BPM: \(engine.currentBeat.bpm)")
+                            .foregroundColor(.liminalOnSurfaceVariant)
+                            .accessibilityIdentifier("drumBpmReadout")
+                    }
+                    .font(.spaceMono(size: 11))
+                    .tracking(0.5)
                 }
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
