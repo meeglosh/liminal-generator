@@ -75,11 +75,23 @@ struct SplashView: View {
             VStack(spacing: 0) {
                 Spacer()
 
-                Image(systemName: "video.fill")
-                    .font(.system(size: 72))
-                    .foregroundColor(.liminalCRTGreenDim)
-                    .shadow(color: .liminalCRTGreenDim.opacity(0.9), radius: 14)
-                    .padding(.bottom, LiminalMetrics.stackLarge)
+                ZStack {
+                    Circle()
+                        .fill(Color.liminalCRTGreenDim.opacity(0.35))
+                        .frame(width: 108, height: 108)
+                        .blur(radius: 24)
+                    Image("SplashIcon")
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: 72, height: 72)
+                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .stroke(Color.liminalCRTGreenDim.opacity(0.6), lineWidth: 1)
+                        )
+                        .shadow(color: .liminalCRTGreenDim.opacity(0.9), radius: 14)
+                }
+                .padding(.bottom, LiminalMetrics.stackLarge)
 
                 GlitchWordmark(text: "LIMINAL GENERATOR")
 

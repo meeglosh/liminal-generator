@@ -250,6 +250,61 @@ final class LiminalGeneratorFlowTests: XCTestCase {
         XCTAssertTrue(header.waitForExistence(timeout: 5), "Should return to the main screen after tapping DONE")
     }
 
+    /// Regression test for SPEC.md Addendum 5 item 1 ("deliberate slider
+    /// editing"): a vertical drag that starts ON a slider must scroll the
+    /// page, not change the slider's value. `LiminalSlider` now only begins
+    /// tracking a drag once the first movement reads as clearly horizontal
+    /// (`DragGesture(minimumDistance: 12)` + a latched |dx|>|dy| check on
+    /// the first `onChanged`, applied via `.simultaneousGesture` so the
+    /// ancestor ScrollView's own pan recognizer keeps receiving touches
+    /// concurrently). This test drives that exact scenario via XCUITest
+    /// coordinate APIs and checks both halves: the slider's reported
+    /// accessibility value is unchanged, AND the slider's on-screen frame
+    /// moved (proving the drag really did scroll the page rather than being
+    /// silently swallowed).
+    func testVerticalDragThroughSliderDoesNotChangeValue() throws {
+        let app = XCUIApplication()
+        app.launchEnvironment = ["LG_RENDER_SECONDS": "8"]
+        app.launch()
+
+        let header = app.staticTexts["mainHeaderTitle"]
+        XCTAssertTrue(header.waitForExistence(timeout: 10), "Main header should appear after splash")
+
+        let spaceSlider = app.otherElements["spaceSlider"]
+        scrollUntilHittable(spaceSlider, in: app)
+        XCTAssertTrue(spaceSlider.isHittable, "SPACE slider should be scrolled into view")
+
+        // Set it to a known, non-edge value first via a clean horizontal
+        // drag, so a regression that nudges the value in either direction
+        // would be caught (rather than starting from an edge where a small
+        // nudge might not move the reported/rounded value).
+        dragSlider(spaceSlider, toNormalizedX: 0.5)
+        let valueBefore = spaceSlider.value as? String
+        let frameBefore = spaceSlider.frame
+
+        saveScreenshot(app, name: "07_vertical_drag_before.png")
+
+        // A vertical drag starting ON the slider: should scroll the page,
+        // not move the slider's thumb.
+        let start = spaceSlider.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        let end = spaceSlider.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 6.0))
+        start.press(forDuration: 0.05, thenDragTo: end)
+        _ = waitFor(timeout: 0.5) { false } // let the scroll animation settle
+
+        saveScreenshot(app, name: "08_vertical_drag_after.png")
+
+        // Re-query by identifier (the element likely moved/scrolled) and
+        // compare both its reported value and its on-screen frame.
+        let spaceSliderAfter = app.otherElements["spaceSlider"]
+        XCTAssertTrue(spaceSliderAfter.waitForExistence(timeout: 2), "SPACE slider should still exist after the vertical drag")
+
+        XCTAssertEqual(spaceSliderAfter.value as? String, valueBefore,
+                       "A vertical drag starting on the SPACE slider must not change its value. before=\(valueBefore ?? "nil") after=\(spaceSliderAfter.value as? String ?? "nil")")
+
+        XCTAssertNotEqual(frameBefore.origin.y, spaceSliderAfter.frame.origin.y,
+                          "The vertical drag should have scrolled the page (slider's on-screen position should move)")
+    }
+
     // MARK: - Helpers
 
     /// Saves a screenshot both as an XCTAttachment (visible in the test

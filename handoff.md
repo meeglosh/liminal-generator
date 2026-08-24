@@ -137,6 +137,17 @@ App Store Connect app id `6804471660`, app name "Liminal Generator".
   GENERATE BASS button. Now a sub-bass following the pad progression's chord roots (see Audio section).
 - **Music engine is the ambient pad composer** (SPEC.md Addendum 3) — the old straight-rhythm arpeggio
   engine is retired. GENERATE MELODY rolls key + chord progression + melody motif as one "scene".
+- Interaction/branding polish (Addendum 5, in build 1.0 (6)): sliders use a custom
+  `DirectionalPanGestureRecognizer` (UIKit-level) that fails itself on vertical touches so page scrolling
+  never edits values — a plain SwiftUI DragGesture CANNOT do this (once recognized it blocks the
+  ScrollView; don't regress to it); carousel swipes track the finger and spring-settle (smooth, wrapping);
+  splash shows the VHS-tape app icon (SplashIcon imageset) not an SF Symbol; rendered clips carry a
+  "LIMINAL GENERATOR" watermark bottom-right (baked pre-fade so black lead-in/out stays pure); share
+  sheet shows a mid-clip thumbnail via UIActivityItemSource + LPLinkMetadata (pre-generated and cached
+  after render); VHS look intensified live + rendered to matching pinned values (scanlines 0.18,
+  grain 0.075, tracking glitch every 4–9s, +50% edge chroma, chroma bleed). 120s render measured at
+  ~56s — inside the ~60s budget with slim margin; the glitch band's full-frame materialize is the lever
+  if more headroom is needed.
 - App starts idle at "PLAY ▶" (deliberate; an early build auto-played on launch — don't regress).
 - App record, cert, and bundle id already exist in ASC/portal — never recreate them.
 - Untested on physical hardware: real speaker audio character, shader perf, haptics.

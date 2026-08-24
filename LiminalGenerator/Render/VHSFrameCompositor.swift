@@ -5,22 +5,42 @@
 //  Per-frame video compositor for ClipRenderer. Visually matches the live
 //  Metal shader (UI/VHSShader.metal): 3-tap edge-weighted chroma
 //  aberration, sine scanlines, luma grain, vignette, an occasional
-//  horizontal tracking-jitter band, plus the baked VCR OSD (timestamp/
-//  REC/SP), all composited with Core Image.
+//  vertically-sweeping tracking-glitch band, plus the baked VCR OSD
+//  (timestamp/REC/SP) and a bottom-right "LIMINAL GENERATOR" watermark,
+//  all composited with Core Image.
 //
-//  Performance: everything in the live shader that does NOT depend on
-//  time or frame content (chroma aberration, scanlines, vignette) is baked
-//  into a single flat `baseImage` bitmap exactly once in `init`. Each of
-//  the (up to) 3600 output frames then only pays for the cheap
-//  time-varying parts: a translated sample of a pre-baked noise field
-//  (grain), an occasional cheap strip-shift (tracking band), a cached OSD
-//  bitmap keyed by (second, blink-state) instead of a fresh Core Text
-//  layout per frame, and a fade gain.
+//  Intensity parameters below implement the PINNED targets from SPEC.md
+//  Addendum 5 item 5 (shared with the live Metal shader so live playback
+//  and the rendered MP4 read as the same look):
+//    - scanlines: ~0.18 strength, ~2px period @848px, ±20% temporal
+//      modulation
+//    - grain: animated luma noise, amplitude ~0.06-0.09, refreshed per
+//      frame
+//    - tracking glitch: ~20-40px band @848px, sweeping vertically over
+//      ~0.2-0.4s, every ~4-9s (randomized, seeded once per render instance
+//      so different renders get different -- but reproducible -- timing)
+//    - chroma aberration: edge magnitude +~50% vs the previous build
+//    - chroma bleed: subtle overall desaturation + soft color smear
+//    - vignette: unchanged
+//
+//  Performance: everything that does NOT depend on time or frame content
+//  (chroma aberration, chroma bleed/desaturation, vignette) is baked into
+//  a single flat `baseImage` bitmap exactly once in `init`. The scanline
+//  pattern is also shaped once (its *strength* is modulated per frame via
+//  a single cheap colorMatrix pass, not re-shaped). The watermark is drawn
+//  once (its text never changes) and composited pre-fade every frame so it
+//  fades to black with the rest of the picture. Each of the (up to) 3600
+//  output frames then only pays for: a translated sample of a pre-baked
+//  noise field (grain), a scalar-modulated multiply of the pre-baked
+//  scanline pattern, an occasional cheap strip-shift + noise boost
+//  (tracking glitch, only active ~6-12 frames every few seconds), a cached
+//  OSD bitmap keyed by (second, blink-state) instead of a fresh Core Text
+//  layout per frame, a static watermark composite, and a fade gain.
 //
 //  Single-writer usage: `render(frameIndex:gain:into:)` is only ever
 //  called sequentially, in increasing frame order, from ClipRenderer's
 //  video pump task -- never concurrently -- so the small mutable state
-//  used for the tracking-band state machine and the OSD cache is safe
+//  used for the tracking-glitch state machine and the OSD cache is safe
 //  without extra synchronization. `@unchecked Sendable` documents that
 //  contract (same pattern as `AudioEngineController`'s
 //  `InterleavedScratch`).
@@ -42,6 +62,8 @@ final class VHSFrameCompositor: @unchecked Sendable {
     private let baseExtent: CGRect
     private let noiseField: CIImage
     private let noiseFieldSize: CGSize
+    private let scanlinePattern: CIImage
+    private let watermarkImage: CIImage
 
     private let timestamp: VHSTimestamp
     private let startHour12: Int
@@ -51,10 +73,19 @@ final class VHSFrameCompositor: @unchecked Sendable {
 
     private var osdCache: [Int: CIImage] = [:]
 
-    // Tracking-band state machine (mutated sequentially, see header note).
-    private var trackingBandFramesRemaining = 0
-    private var trackingBandCenterY: CGFloat = 0
-    private var trackingBandOffsetX: CGFloat = 0
+    // Tracking-glitch state machine (mutated sequentially, see header
+    // note). Seeded once per render instance so repeated renders don't all
+    // glitch at identical wall-clock offsets, while staying fully
+    // deterministic/reproducible for a given seed.
+    private var glitchGen: SplitMix64
+    private var nextGlitchFrame: Int
+    private var glitchActive = false
+    private var glitchStartFrame = 0
+    private var glitchDurationFrames = 0
+    private var glitchBandHeight: CGFloat = 0
+    private var glitchStartY: CGFloat = 0
+    private var glitchEndY: CGFloat = 0
+    private var glitchOffsetX: CGFloat = 0
 
     init(baseImage cgImage: CGImage, timestamp: VHSTimestamp, width: Int, height: Int, fps: Int32) {
         self.width = width
@@ -73,6 +104,12 @@ final class VHSFrameCompositor: @unchecked Sendable {
 
         let source = CIImage(cgImage: cgImage)
         self.baseImage = Self.buildProcessedBase(source: source, targetSize: targetSize, context: context)
+        self.scanlinePattern = Self.buildScanlinePattern(size: targetSize)
+        if let wmCG = Self.drawWatermark(size: targetSize) {
+            self.watermarkImage = CIImage(cgImage: wmCG)
+        } else {
+            self.watermarkImage = CIImage.empty()
+        }
 
         let margin: CGFloat = 256
         let fieldSize = CGSize(width: targetSize.width + margin * 2, height: targetSize.height + margin * 2)
@@ -94,7 +131,24 @@ final class VHSFrameCompositor: @unchecked Sendable {
         startMinute = hms.count > 1 ? hms[1] : 0
         startSecond = hms.count > 2 ? hms[2] : 0
         startIsPM = isPM
+
+        // Tracking-glitch schedule: a fresh random seed per render instance
+        // (from the system RNG), then every subsequent decision comes from
+        // that seeded, allocation-free generator so timing is reproducible
+        // for a given seed and safe to mutate without synchronization.
+        var seedSource = SystemRandomNumberGenerator()
+        let renderSeed = UInt64.random(in: UInt64.min...UInt64.max, using: &seedSource)
+        var gen = SplitMix64(seed: renderSeed)
+        let firstIntervalSeconds = Self.randomInterval(4...9, gen: &gen)
+        self.nextGlitchFrame = Int((firstIntervalSeconds * Double(fps)).rounded())
+        self.glitchGen = gen
     }
+
+    #if DEBUG
+    /// Exposed only for `AutoRenderDebugHarness`'s direct pixel-buffer
+    /// verification (bypassing H.264 encoding) of the tracking-glitch band.
+    var debugGlitchActive: Bool { glitchActive }
+    #endif
 
     // MARK: - Per-frame render
 
@@ -105,11 +159,12 @@ final class VHSFrameCompositor: @unchecked Sendable {
 
         var frame = baseImage
 
+        frame = applyScanlines(to: frame, frameIndex: frameIndex)
         frame = applyGrain(to: frame, frameIndex: frameIndex)
 
-        updateTrackingBandState(frameIndex: frameIndex)
-        if trackingBandFramesRemaining > 0 {
-            frame = applyTrackingBand(to: frame)
+        updateTrackingGlitch(frameIndex: frameIndex)
+        if glitchActive {
+            frame = applyTrackingGlitch(to: frame, frameIndex: frameIndex)
         }
 
         let osd = cachedOSD(elapsedSeconds: elapsedSeconds, recOn: recOn)
@@ -117,6 +172,14 @@ final class VHSFrameCompositor: @unchecked Sendable {
         over.inputImage = osd
         over.backgroundImage = frame
         frame = (over.outputImage ?? frame).cropped(to: baseExtent)
+
+        // Watermark: composited pre-fade (like the OSD) so it fades to
+        // black with the rest of the picture instead of surviving over a
+        // pure-black lead-in/out.
+        let wmOver = CIFilter.sourceOverCompositing()
+        wmOver.inputImage = watermarkImage
+        wmOver.backgroundImage = frame
+        frame = (wmOver.outputImage ?? frame).cropped(to: baseExtent)
 
         if gain < 1 {
             let g = CGFloat(max(0, gain))
@@ -132,13 +195,13 @@ final class VHSFrameCompositor: @unchecked Sendable {
         context.render(frame, to: pixelBuffer)
     }
 
-    // MARK: - Static base pass (chroma aberration + scanlines + vignette)
+    // MARK: - Static base pass (chroma aberration + chroma bleed + vignette)
 
     private static func buildProcessedBase(source: CIImage, targetSize: CGSize, context: CIContext) -> CIImage {
         let filled = aspectFill(source, to: targetSize)
         let aberrated = applyChromaAberration(filled, size: targetSize)
-        let scanlined = applyScanlines(aberrated, size: targetSize)
-        let vignetted = applyVignette(scanlined, size: targetSize)
+        let bled = applyChromaBleed(aberrated, size: targetSize)
+        let vignetted = applyVignette(bled, size: targetSize)
 
         // Materialize once: everything above is time-invariant across the
         // whole clip, so the (multi-pass) filter graph cost is paid a
@@ -164,10 +227,11 @@ final class VHSFrameCompositor: @unchecked Sendable {
 
     /// 3-tap channel-split chroma aberration, blended back toward the
     /// unshifted original near the horizontal center -- an offline analog
-    /// of the live shader's `mix(1.0, 3.5, edgeDist^2)` per-pixel falloff.
+    /// of the live shader's per-pixel edge falloff. Edge magnitude is
+    /// pinned +~50% vs the previous build (3.0px -> 4.5px offset).
     private static func applyChromaAberration(_ image: CIImage, size: CGSize) -> CIImage {
         let extent = CGRect(origin: .zero, size: size)
-        let offset: CGFloat = 3.0
+        let offset: CGFloat = 4.5
 
         func isolate(_ img: CIImage, r: CGFloat, g: CGFloat, b: CGFloat) -> CIImage {
             let m = CIFilter.colorMatrix()
@@ -225,40 +289,45 @@ final class VHSFrameCompositor: @unchecked Sendable {
         return (blend.outputImage ?? aberrated).cropped(to: extent)
     }
 
-    /// Fine sine scanlines matching the live shader's
-    /// `sin(uv.y * size.y * 1.3) * 0.5 + 0.5`, precomputed as a 1px-wide
-    /// column and stretched horizontally (each row is a constant
-    /// brightness, so stretching a single column tiles it perfectly).
-    private static func applyScanlines(_ image: CIImage, size: CGSize) -> CIImage {
-        let height = max(1, Int(size.height.rounded()))
-        var pixels = [UInt8](repeating: 255, count: height * 4)
-        for y in 0..<height {
-            let scan = sin(Double(y) * 1.3) * 0.5 + 0.5
-            let mult = 0.82 + (1.0 - 0.82) * scan
-            let v = UInt8(max(0, min(255, (mult * 255).rounded())))
-            pixels[y * 4 + 0] = v
-            pixels[y * 4 + 1] = v
-            pixels[y * 4 + 2] = v
-            pixels[y * 4 + 3] = 255
-        }
-        let colorSpace = CGColorSpaceCreateDeviceRGB()
-        guard let provider = CGDataProvider(data: Data(pixels) as CFData),
-              let cg = CGImage(width: 1, height: height, bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: 4,
-                                space: colorSpace,
-                                bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.noneSkipLast.rawValue),
-                                provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent)
-        else {
-            return image
-        }
-        let scanlineImage = CIImage(cgImage: cg).transformed(by: CGAffineTransform(scaleX: size.width, y: 1))
-        let multiply = CIFilter.multiplyCompositing()
-        multiply.inputImage = scanlineImage
-        multiply.backgroundImage = image
-        return (multiply.outputImage ?? image).cropped(to: CGRect(origin: .zero, size: size))
+    /// Subtle overall chroma desaturation + a soft, low-opacity blurred
+    /// blend back on top -- classic VHS "color softness"/bleed: color
+    /// detail smears a touch while luma (from the sharp layer beneath)
+    /// stays legible. Time-invariant, so baked into the static base.
+    private static func applyChromaBleed(_ image: CIImage, size: CGSize) -> CIImage {
+        let extent = CGRect(origin: .zero, size: size)
+
+        let controls = CIFilter.colorControls()
+        controls.inputImage = image
+        controls.saturation = 0.88
+        controls.brightness = 0
+        controls.contrast = 1.0
+        let desaturated = (controls.outputImage ?? image).cropped(to: extent)
+
+        let blur = CIFilter.gaussianBlur()
+        blur.inputImage = desaturated
+        blur.radius = 1.4
+        let blurred = (blur.outputImage ?? desaturated).cropped(to: extent)
+
+        // Force a constant, low alpha on the blurred copy regardless of its
+        // own alpha channel, then lay it over the sharp desaturated image.
+        let alphaMatrix = CIFilter.colorMatrix()
+        alphaMatrix.inputImage = blurred
+        alphaMatrix.rVector = CIVector(x: 1, y: 0, z: 0, w: 0)
+        alphaMatrix.gVector = CIVector(x: 0, y: 1, z: 0, w: 0)
+        alphaMatrix.bVector = CIVector(x: 0, y: 0, z: 1, w: 0)
+        alphaMatrix.aVector = CIVector(x: 0, y: 0, z: 0, w: 0)
+        alphaMatrix.biasVector = CIVector(x: 0, y: 0, z: 0, w: 0.35)
+        let translucentBlur = (alphaMatrix.outputImage ?? blurred).cropped(to: extent)
+
+        let over = CIFilter.sourceOverCompositing()
+        over.inputImage = translucentBlur
+        over.backgroundImage = desaturated
+        return (over.outputImage ?? desaturated).cropped(to: extent)
     }
 
     /// Radial darkening toward the corners, matching the live shader's
-    /// `smoothstep(0.95, 0.35, dist) -> mix(0.55, 1.0, vig)`.
+    /// `smoothstep(0.95, 0.35, dist) -> mix(0.55, 1.0, vig)`. Pinned as
+    /// unchanged.
     private static func applyVignette(_ image: CIImage, size: CGSize) -> CIImage {
         let center = CGPoint(x: size.width / 2, y: size.height / 2)
         let maxDist = hypot(size.width, size.height) / 2
@@ -277,6 +346,66 @@ final class VHSFrameCompositor: @unchecked Sendable {
         return (multiply.outputImage ?? image).cropped(to: CGRect(origin: .zero, size: size))
     }
 
+    // MARK: - Scanlines (shape baked once, strength modulated per frame)
+
+    /// Precomputes the scanline brightness pattern at the pinned nominal
+    /// strength (~0.18) and ~2px period at the 848px reference frame
+    /// height (`sin(y * pi)`), as a 1px-wide column stretched horizontally
+    /// (each row is a constant brightness, so stretching a single column
+    /// tiles it perfectly). Stored as a full-strength "shape" image;
+    /// `applyScanlines` cheaply rescales its deviation from 1.0 per frame
+    /// to get the pinned ±20% temporal modulation without re-rasterizing.
+    private static func buildScanlinePattern(size: CGSize) -> CIImage {
+        let height = max(1, Int(size.height.rounded()))
+        var pixels = [UInt8](repeating: 255, count: height * 4)
+        let baseStrength = 0.18
+        let frequency = Double.pi // 2*pi / 2px period
+        for y in 0..<height {
+            let scan = sin(Double(y) * frequency) * 0.5 + 0.5
+            let mult = 1.0 - baseStrength * (1.0 - scan)
+            let v = UInt8(max(0, min(255, (mult * 255).rounded())))
+            pixels[y * 4 + 0] = v
+            pixels[y * 4 + 1] = v
+            pixels[y * 4 + 2] = v
+            pixels[y * 4 + 3] = 255
+        }
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
+        guard let provider = CGDataProvider(data: Data(pixels) as CFData),
+              let cg = CGImage(width: 1, height: height, bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: 4,
+                                space: colorSpace,
+                                bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.noneSkipLast.rawValue),
+                                provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent)
+        else {
+            return CIImage.empty()
+        }
+        return CIImage(cgImage: cg).transformed(by: CGAffineTransform(scaleX: size.width, y: 1))
+    }
+
+    /// Rescales the precomputed pattern's deviation from 1.0 by a slowly
+    /// oscillating factor `k` in [0.8, 1.2] (±20%), then multiplies it into
+    /// the frame. `mult_t = 1 - k*(1 - mult0)` is affine in `mult0`, so a
+    /// single per-frame colorMatrix does the modulation cheaply -- no
+    /// re-rasterizing the sine pattern every frame.
+    private func applyScanlines(to image: CIImage, frameIndex: Int) -> CIImage {
+        let modPeriodFrames = Double(fps) * 4.0 // slow ~4s modulation cycle
+        let phase = 2.0 * Double.pi * Double(frameIndex) / modPeriodFrames
+        let k = CGFloat(1.0 + 0.2 * sin(phase))
+
+        let modulate = CIFilter.colorMatrix()
+        modulate.inputImage = scanlinePattern
+        modulate.rVector = CIVector(x: k, y: 0, z: 0, w: 0)
+        modulate.gVector = CIVector(x: 0, y: k, z: 0, w: 0)
+        modulate.bVector = CIVector(x: 0, y: 0, z: k, w: 0)
+        modulate.aVector = CIVector(x: 0, y: 0, z: 0, w: 1)
+        modulate.biasVector = CIVector(x: 1 - k, y: 1 - k, z: 1 - k, w: 0)
+        let modulated = (modulate.outputImage ?? scanlinePattern).cropped(to: baseExtent)
+
+        let multiply = CIFilter.multiplyCompositing()
+        multiply.inputImage = modulated
+        multiply.backgroundImage = image
+        return (multiply.outputImage ?? image).cropped(to: baseExtent)
+    }
+
     // MARK: - Per-frame varying parts
 
     private func applyGrain(to image: CIImage, frameIndex: Int) -> CIImage {
@@ -290,7 +419,11 @@ final class VHSFrameCompositor: @unchecked Sendable {
             .transformed(by: CGAffineTransform(translationX: -dx, y: -dy))
             .cropped(to: baseExtent)
 
-        let strength: CGFloat = 0.05
+        // Pinned amplitude ~0.06-0.09; refreshed every frame via the
+        // frame-indexed seed above (a fresh window of the pre-baked noise
+        // field each frame reads as animated grain without regenerating
+        // random noise per pixel per frame).
+        let strength: CGFloat = 0.075
         let recentered = CIFilter.colorMatrix()
         recentered.inputImage = window
         recentered.rVector = CIVector(x: strength, y: 0, z: 0, w: 0)
@@ -306,33 +439,110 @@ final class VHSFrameCompositor: @unchecked Sendable {
         return (add.outputImage ?? image).cropped(to: baseExtent)
     }
 
-    private func updateTrackingBandState(frameIndex: Int) {
-        if trackingBandFramesRemaining > 0 {
-            trackingBandFramesRemaining -= 1
-            return
-        }
-        // A new "roll" window every ~1/6s, mirroring the live shader's
-        // `floor(time * 6.0)` cadence; most windows stay quiet.
-        let windowFrames = max(1, Int(fps) / 6)
-        guard frameIndex % windowFrames == 0 else { return }
-        var gen = SplitMix64(seed: UInt64(bitPattern: Int64(frameIndex &* 2_246_822_519 &+ 3_266_489_917)))
-        guard gen.nextUnit() > 0.93 else { return }
-        trackingBandFramesRemaining = Int(2 + gen.nextUnit() * 4) // 2...6 frames
-        trackingBandCenterY = CGFloat(gen.nextUnit()) * CGFloat(height)
-        trackingBandOffsetX = CGFloat((gen.nextUnit() - 0.5) * 40)
+    // MARK: - Tracking glitch (~4-9s cadence, ~20-40px band, sweeps for ~0.2-0.4s)
+
+    private static func randomInterval(_ range: ClosedRange<Double>, gen: inout SplitMix64) -> Double {
+        range.lowerBound + gen.nextUnit() * (range.upperBound - range.lowerBound)
     }
 
-    private func applyTrackingBand(to image: CIImage) -> CIImage {
-        let bandHeight = CGFloat(height) * 0.07
-        let bandRect = CGRect(x: 0, y: max(0, trackingBandCenterY - bandHeight / 2),
-                               width: CGFloat(width), height: bandHeight).intersection(baseExtent)
+    private func updateTrackingGlitch(frameIndex: Int) {
+        if glitchActive {
+            let elapsed = frameIndex - glitchStartFrame
+            if elapsed >= glitchDurationFrames {
+                glitchActive = false
+                let intervalSeconds = Self.randomInterval(4...9, gen: &glitchGen)
+                nextGlitchFrame = frameIndex + max(1, Int((intervalSeconds * Double(fps)).rounded()))
+            }
+            return
+        }
+        guard frameIndex >= nextGlitchFrame else { return }
+
+        glitchActive = true
+        glitchStartFrame = frameIndex
+        let durationSeconds = Self.randomInterval(0.2...0.4, gen: &glitchGen)
+        glitchDurationFrames = max(1, Int((durationSeconds * Double(fps)).rounded()))
+
+        let referenceScale = CGFloat(height) / 848.0
+        glitchBandHeight = CGFloat(Self.randomInterval(20...40, gen: &glitchGen)) * referenceScale
+        glitchStartY = CGFloat(glitchGen.nextUnit()) * CGFloat(height)
+        let sweep = CGFloat(height) * 0.3
+        glitchEndY = min(CGFloat(height), max(0, glitchStartY + CGFloat(glitchGen.nextUnit() - 0.5) * 2 * sweep))
+        glitchOffsetX = CGFloat(glitchGen.nextUnit() - 0.5) * 56 * referenceScale
+
+        #if DEBUG
+        print("[VHS_GLITCH] startFrame=\(frameIndex) durationFrames=\(glitchDurationFrames) " +
+              "bandHeight=\(glitchBandHeight) startY=\(glitchStartY) endY=\(glitchEndY) offsetX=\(glitchOffsetX)")
+        #endif
+    }
+
+    /// A vertically-sweeping band of displaced, brightened, noise-boosted
+    /// pixels -- reads as a tracking error rolling through the frame
+    /// rather than a static glitch.
+    private func applyTrackingGlitch(to image: CIImage, frameIndex: Int) -> CIImage {
+        let elapsed = frameIndex - glitchStartFrame
+        let progress = glitchDurationFrames > 1 ? CGFloat(elapsed) / CGFloat(glitchDurationFrames - 1) : 0
+        let centerY = glitchStartY + (glitchEndY - glitchStartY) * progress
+        let bandRect = CGRect(x: 0, y: max(0, centerY - glitchBandHeight / 2),
+                               width: CGFloat(width), height: glitchBandHeight).intersection(baseExtent)
         guard !bandRect.isEmpty else { return image }
-        let strip = image.cropped(to: bandRect)
-            .transformed(by: CGAffineTransform(translationX: trackingBandOffsetX, y: 0))
+
+        // Materialize the incoming frame to a flat bitmap first. Compositing
+        // a *crop of `image`* back over `image` itself -- while both still
+        // reference the same lazy Core Image graph node -- was found (via
+        // direct pixel-buffer bisection, bypassing H.264 entirely) to
+        // corrupt to solid black for the cropped region on-device, even
+        // with zero color adjustment and zero transform. Rendering to a
+        // CGImage and rewrapping breaks that self-reference; this only
+        // runs on the rare handful of frames where the glitch is actually
+        // active (a few frames every several seconds), so the extra
+        // readback is negligible against the render budget.
+        guard let materializedCG = context.createCGImage(image, from: baseExtent) else { return image }
+        let materialized = CIImage(cgImage: materializedCG)
+
+        let bandContent = materialized.cropped(to: bandRect)
+
+        let brighten = CIFilter.colorMatrix()
+        brighten.inputImage = bandContent
+        let boost: CGFloat = 1.28
+        brighten.rVector = CIVector(x: boost, y: 0, z: 0, w: 0)
+        brighten.gVector = CIVector(x: 0, y: boost, z: 0, w: 0)
+        brighten.bVector = CIVector(x: 0, y: 0, z: boost, w: 0)
+        brighten.aVector = CIVector(x: 0, y: 0, z: 0, w: 1)
+        brighten.biasVector = CIVector(x: 0.03, y: 0.03, z: 0.03, w: 0)
+        let brightened = (brighten.outputImage ?? bandContent).cropped(to: bandRect)
+
+        // Extra brightened noise within the band, sampled from the
+        // pre-baked noise field at a stronger amplitude than ordinary
+        // grain, so the sweep reads as "hot" tracking-error smear.
+        let maxDX = max(0, noiseFieldSize.width - CGFloat(width))
+        let maxDY = max(0, noiseFieldSize.height - CGFloat(height))
+        var extraGen = SplitMix64(seed: UInt64(bitPattern: Int64(frameIndex &* 40_503 &+ 111)))
+        let ndx = CGFloat(extraGen.nextUnit()) * maxDX
+        let ndy = CGFloat(extraGen.nextUnit()) * maxDY
+        let extraNoise = noiseField
+            .transformed(by: CGAffineTransform(translationX: -ndx, y: -ndy))
+            .cropped(to: bandRect)
+
+        let noiseBoost = CIFilter.colorMatrix()
+        noiseBoost.inputImage = extraNoise
+        let ns: CGFloat = 0.16
+        noiseBoost.rVector = CIVector(x: ns, y: 0, z: 0, w: 0)
+        noiseBoost.gVector = CIVector(x: 0, y: ns, z: 0, w: 0)
+        noiseBoost.bVector = CIVector(x: 0, y: 0, z: ns, w: 0)
+        noiseBoost.aVector = CIVector(x: 0, y: 0, z: 0, w: 0)
+        noiseBoost.biasVector = CIVector(x: -ns / 2, y: -ns / 2, z: -ns / 2, w: 1)
+        let noiseLayer = (noiseBoost.outputImage ?? extraNoise).cropped(to: bandRect)
+
+        let addNoise = CIFilter.additionCompositing()
+        addNoise.inputImage = noiseLayer
+        addNoise.backgroundImage = brightened
+        let hotBand = (addNoise.outputImage ?? brightened).cropped(to: bandRect)
+
+        let shifted = hotBand.transformed(by: CGAffineTransform(translationX: glitchOffsetX, y: 0))
         let over = CIFilter.sourceOverCompositing()
-        over.inputImage = strip
-        over.backgroundImage = image
-        return (over.outputImage ?? image).cropped(to: baseExtent)
+        over.inputImage = shifted
+        over.backgroundImage = materialized
+        return (over.outputImage ?? materialized).cropped(to: baseExtent)
     }
 
     // MARK: - OSD (cached per distinct second / blink state)
@@ -425,14 +635,48 @@ final class VHSFrameCompositor: @unchecked Sendable {
                              bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
         return ctx!.makeImage()!
     }
+
+    // MARK: - Watermark (baked once; static text, composited pre-fade every frame)
+
+    /// "LIMINAL GENERATOR" in Space Mono, bottom-right, ~3.5% of frame
+    /// height, off-white with the same glow treatment as the OSD, ~80%
+    /// opacity, safe-margined the same as the other OSD elements. Drawn
+    /// once in `init` since the text never changes across the clip.
+    private static func drawWatermark(size: CGSize) -> CGImage? {
+        let format = UIGraphicsImageRendererFormat()
+        format.opaque = false
+        format.scale = 1
+        let renderer = UIGraphicsImageRenderer(size: size, format: format)
+
+        let image = renderer.image { rendererContext in
+            let cg = rendererContext.cgContext
+            let margin: CGFloat = size.width * 0.028
+            let fontSize = size.height * 0.035
+            let font = UIFont(name: "SpaceMono-Bold", size: fontSize)
+                ?? UIFont.monospacedSystemFont(ofSize: fontSize, weight: .bold)
+            let color = UIColor(red: 0.933, green: 1.0, blue: 0.894, alpha: 0.8) // liminalPrimary @ ~80%
+            let text = "LIMINAL GENERATOR"
+
+            let attrs: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: color]
+            let str = NSAttributedString(string: text, attributes: attrs)
+            let measured = str.size()
+            let origin = CGPoint(x: size.width - margin - measured.width, y: size.height - margin - measured.height)
+
+            cg.saveGState()
+            cg.setShadow(offset: .zero, blur: size.width * 0.014, color: color.withAlphaComponent(0.85).cgColor)
+            str.draw(at: origin)
+            cg.restoreGState()
+        }
+        return image.cgImage
+    }
 }
 
 // MARK: - Cheap deterministic per-frame RNG
 
 /// SplitMix64: fast, allocation-free, deterministic given a seed -- used so
-/// each frame's "randomness" (grain sample offset, tracking-band decision)
-/// is reproducible and safe to compute without any shared mutable RNG
-/// state across frames.
+/// each frame's "randomness" (grain sample offset, tracking-glitch
+/// decisions) is reproducible and safe to compute without any shared
+/// mutable RNG state across frames.
 private struct SplitMix64 {
     private var state: UInt64
     init(seed: UInt64) { state = seed }

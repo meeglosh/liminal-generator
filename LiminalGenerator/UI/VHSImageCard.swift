@@ -123,6 +123,11 @@ struct VHSImageCard: View {
 
     @State private var dragOffset: CGFloat = 0
     @State private var isDragging = false
+    /// True while the released drag is animating (spring/ease) to its
+    /// settled position — keeps the neighbor strips live (shader running,
+    /// not clipped away) through the settle, and is the guard that lets the
+    /// index-swap-at-full-offset trick land as a single seamless frame.
+    @State private var isSettling = false
 
     private var currentImage: LiminalImage { ImageLibrary[index] }
 
@@ -139,12 +144,14 @@ struct VHSImageCard: View {
                 GeometryReader { geo in
                     let width = geo.size.width
 
+                    let neighborsActive = isDragging || isSettling
+
                     ZStack {
-                        VHSFilteredImage(assetName: ImageLibrary[index - 1].assetName, isActive: isDragging, isPlaying: isPlaying)
+                        VHSFilteredImage(assetName: ImageLibrary[index - 1].assetName, isActive: neighborsActive, isPlaying: isPlaying)
                             .offset(x: -width + dragOffset)
                         VHSFilteredImage(assetName: ImageLibrary[index].assetName, isActive: true, isPlaying: isPlaying)
                             .offset(x: dragOffset)
-                        VHSFilteredImage(assetName: ImageLibrary[index + 1].assetName, isActive: isDragging, isPlaying: isPlaying)
+                        VHSFilteredImage(assetName: ImageLibrary[index + 1].assetName, isActive: neighborsActive, isPlaying: isPlaying)
                             .offset(x: width + dragOffset)
 
                         VHSOSDOverlay(timestamp: timestamp, isPlaying: isPlaying, onTogglePlay: onTogglePlay)
@@ -154,26 +161,22 @@ struct VHSImageCard: View {
                     .gesture(
                         DragGesture(minimumDistance: 8)
                             .onChanged { value in
+                                guard !isSettling else { return }
                                 isDragging = true
                                 dragOffset = value.translation.width
                             }
                             .onEnded { value in
-                                let threshold = width * 0.22
-                                var didSwipe = false
-                                if value.translation.width < -threshold {
-                                    index += 1
-                                    didSwipe = true
-                                } else if value.translation.width > threshold {
-                                    index -= 1
-                                    didSwipe = true
-                                }
-                                withAnimation(.easeOut(duration: 0.22)) {
-                                    dragOffset = 0
-                                }
+                                guard !isSettling else { return }
                                 isDragging = false
-                                if didSwipe {
-                                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                                    timestamp = .random()
+                                let threshold = width * 0.22
+                                if value.translation.width < -threshold {
+                                    settle(direction: 1, width: width)
+                                } else if value.translation.width > threshold {
+                                    settle(direction: -1, width: width)
+                                } else {
+                                    withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
+                                        dragOffset = 0
+                                    }
                                 }
                             }
                     )
@@ -182,5 +185,28 @@ struct VHSImageCard: View {
             .background(Color.liminalSurfaceContainerLow)
             .overlay(Rectangle().stroke(Color.liminalOutlineVariant, lineWidth: 1))
             .clipped()
+    }
+
+    /// Animates the strip the rest of the way off-screen in the swipe's
+    /// direction (continuing the finger's motion rather than snapping back),
+    /// then — once that settle animation completes — instantly swaps `index`
+    /// and resets `dragOffset` to 0 in the same frame. That swap is visually
+    /// seamless: at the moment the animation lands, the neighbor that was
+    /// sliding in (drawn at `±width + dragOffset`) is already sitting exactly
+    /// at the strip's center, which is bit-for-bit where the new "current"
+    /// image (offset 0) will be drawn the instant `index` updates. Haptic +
+    /// timestamp regeneration fire immediately on release (once per
+    /// COMPLETED swipe), not gated on the animation finishing.
+    private func settle(direction: Int, width: CGFloat) {
+        isSettling = true
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        timestamp = .random()
+        withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
+            dragOffset = direction > 0 ? -width : width
+        } completion: {
+            index += direction
+            dragOffset = 0
+            isSettling = false
+        }
     }
 }

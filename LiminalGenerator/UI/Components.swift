@@ -108,16 +108,131 @@ struct LiminalSlider: View {
                     .offset(x: thumbX)
             }
             .frame(height: max(trackHeight, thumbSize.height), alignment: .center)
-            .contentShape(Rectangle())
-            .gesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { drag in
-                        let x = min(max(0, drag.location.x), w)
-                        value = Float(x / w)
-                    }
+            // A plain SwiftUI `DragGesture`, once its `minimumDistance` is
+            // exceeded, has already unconditionally "recognized" at the
+            // UIKit level -- there's no SwiftUI API to retroactively fail it
+            // from inside `onChanged`. Since a ScrollView's own pan
+            // recognizer is, by default, required to fail *before* the
+            // ScrollView itself is allowed to begin, a DragGesture whose
+            // `onChanged` merely "ignores" vertical movement still holds
+            // that lock silently for the gesture's whole lifetime -- it
+            // recognizes, just does nothing -- which blocks scrolling
+            // exactly as before. `DirectionalDragOverlay` below is a thin
+            // UIKit `UIPanGestureRecognizer` subclass that actively
+            // transitions itself to `.failed` (from `.possible`, before it
+            // has ever recognized) the moment a touch reads as vertical,
+            // which is the correct/only way to hand it back to the
+            // ancestor ScrollView mid-gesture.
+            .overlay(
+                DirectionalDragOverlay { fraction in
+                    value = Float(fraction)
+                }
             )
+            // Exposes the current value for both VoiceOver and UI-test
+            // verification (e.g. the vertical-drag-does-not-move-the-slider
+            // regression test reads this before/after) without changing the
+            // element's accessibility kind/traits, so `app.otherElements[...]`
+            // lookups in existing tests keep matching exactly as before.
+            .accessibilityValue("\(Int((clamped * 100).rounded()))")
         }
         .frame(height: thumbSize.height)
+    }
+}
+
+/// Transparent gesture-only overlay used by `LiminalSlider`: recognizes a
+/// drag only once it reads as clearly horizontal (`|dx| > |dy|` once the
+/// touch has moved enough to classify), reporting the touch's x-fraction
+/// (0...1 of the view's width) on every recognized update. A vertical/
+/// diagonal-ish touch is failed early instead, releasing it to whatever
+/// ancestor gesture (the page's ScrollView) would otherwise handle it.
+private struct DirectionalDragOverlay: UIViewRepresentable {
+    var onHorizontalDrag: (CGFloat) -> Void
+
+    func makeUIView(context: Context) -> UIView {
+        let view = UIView()
+        view.backgroundColor = .clear
+        let recognizer = DirectionalPanGestureRecognizer(
+            target: context.coordinator,
+            action: #selector(Coordinator.handlePan(_:))
+        )
+        recognizer.maximumNumberOfTouches = 1
+        view.addGestureRecognizer(recognizer)
+        return view
+    }
+
+    func updateUIView(_ uiView: UIView, context: Context) {}
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onHorizontalDrag: onHorizontalDrag)
+    }
+
+    final class Coordinator: NSObject {
+        let onHorizontalDrag: (CGFloat) -> Void
+
+        init(onHorizontalDrag: @escaping (CGFloat) -> Void) {
+            self.onHorizontalDrag = onHorizontalDrag
+        }
+
+        @objc func handlePan(_ recognizer: UIPanGestureRecognizer) {
+            guard let view = recognizer.view, view.bounds.width > 0 else { return }
+            switch recognizer.state {
+            case .began, .changed:
+                let x = recognizer.location(in: view).x
+                onHorizontalDrag(min(max(0, x / view.bounds.width), 1))
+            default:
+                break
+            }
+        }
+    }
+}
+
+/// Fails itself (transitioning `.possible -> .failed`, before ever
+/// recognizing) the moment a touch's movement reads as more vertical than
+/// horizontal. Direction is decided once per touch sequence, the first time
+/// movement exceeds `directionThreshold` in either axis, then latched for
+/// the rest of the gesture -- matching `LiminalSlider`'s "decide once, on
+/// first movement" contract.
+private final class DirectionalPanGestureRecognizer: UIPanGestureRecognizer {
+    private let directionThreshold: CGFloat = 12
+    private var startLocation: CGPoint = .zero
+    private var isHorizontal: Bool?
+
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent) {
+        super.touchesBegan(touches, with: event)
+        isHorizontal = nil
+        if let touch = touches.first, let view {
+            startLocation = touch.location(in: view)
+        }
+    }
+
+    override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent) {
+        guard let touch = touches.first, let view else {
+            super.touchesMoved(touches, with: event)
+            return
+        }
+
+        if isHorizontal == nil {
+            let loc = touch.location(in: view)
+            let dx = loc.x - startLocation.x
+            let dy = loc.y - startLocation.y
+            guard max(abs(dx), abs(dy)) >= directionThreshold else { return }
+            if abs(dx) > abs(dy) {
+                isHorizontal = true
+            } else {
+                isHorizontal = false
+                state = .failed
+                return
+            }
+        }
+
+        guard isHorizontal == true else { return }
+        super.touchesMoved(touches, with: event)
+    }
+
+    override func reset() {
+        super.reset()
+        isHorizontal = nil
+        startLocation = .zero
     }
 }
 

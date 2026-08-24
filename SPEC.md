@@ -362,3 +362,41 @@ wow/flutter → hiss → reverb chain (which continues to affect everything as b
   (measurable L/R decorrelation and ~0.5Hz pitch modulation); bass/drum layers bit-identical (or
   numerically identical within float tolerance) regardless of the slider; no clicks while dragging;
   render-callback stays allocation/lock-free.
+
+### Addendum 5 (interaction polish + share/branding + VHS intensity, 2026-08-23)
+Six user-feedback items. Items 1/2/4(splash)/5(live) belong to the UI agent; 3/4(video)/5(video) to the
+render agent. The VHS-intensity parameters are PINNED here so the live shader and the rendered video match.
+
+1. **Deliberate slider editing** (`LiminalSlider`/`LiminalSliderRow` in UI/Components.swift): sliders
+   currently capture vertical page-scroll attempts. Fix: a slider only begins editing when the gesture is
+   clearly horizontal (e.g. DragGesture(minimumDistance: ~12) and |dx| > |dy| at capture time — or an
+   equivalent robust technique); vertical drags pass through to the ScrollView untouched. Once editing has
+   begun, it behaves exactly as today (full-precision horizontal tracking). Accessibility adjustment and
+   the UI tests' drag interactions must keep working.
+2. **Smooth carousel transition** (VHSImageCard): swiping between images should be a continuous slide —
+   the strip tracks the finger during the drag and animates (spring/ease) to its settled position on
+   release, instead of a discrete index jump. Wraparound preserved. OSD/timestamp regeneration still fires
+   once per completed swipe.
+3. **Share-sheet preview thumbnail** (Render/): the MP4 fades from black so the share preview shows a
+   black frame. Wrap the share item in a `UIActivityItemSource` providing `LPLinkMetadata` with an
+   `imageProvider` built from a frame at HALF the clip duration (AVAssetImageGenerator), plus a title
+   ("Liminal Generator"). The file item itself stays the MP4 URL.
+4. **Watermark + splash icon**:
+   - Rendered videos get a small, tasteful VCR-style watermark baked in: "LIMINAL GENERATOR" in Space
+     Mono, bottom-right corner, ~3.5% of frame height, off-white with the same subtle glow as the OSD,
+     ~80% opacity, safe-margined like the other OSD elements. Always on (it's the viral-marketing hook).
+   - Splash screen: replace the green camcorder SF Symbol with the actual app icon artwork (img/
+     App-Icon.png — the VHS tape). Add it as a normal imageset (e.g. `SplashIcon`) in Assets.xcassets
+     (AppIcon sets aren't reliably loadable by name). Keep the glow treatment.
+5. **VHS intensity (PINNED — both live shader and VHSFrameCompositor implement these same targets)**:
+   the current treatment is too subtle; make the VHS look unmistakable, live and rendered:
+   - Scanlines: clearly visible dark line pattern, ~2px period at 848px reference, strength ~0.18
+     (was subtle) — modulated slightly (±20%) over time.
+   - Grain/noise: animated luma noise, amplitude ~0.06–0.09, refreshed every frame.
+   - Tracking glitch: every ~4–9s (randomized), a horizontal band (~20–40px at 848px) of displaced/
+     smeared pixels with brightened noise sweeps vertically for ~0.2–0.4s.
+   - Color bleed: slightly stronger chroma aberration at frame edges than today (+~50%), plus a subtle
+     overall chroma desaturation-and-bleed (VHS color softness).
+   - Vignette: unchanged.
+   Live (Metal shader) and rendered (Core Image) versions must land within visual matching distance of
+   each other using these shared numbers.

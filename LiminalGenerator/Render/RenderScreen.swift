@@ -14,6 +14,7 @@
 //
 
 import SwiftUI
+import UIKit
 
 // MARK: - View model
 
@@ -34,6 +35,11 @@ final class RenderViewModel: ObservableObject {
     @Published private(set) var overallProgress: Double = 0
     @Published private(set) var logLines: [LogLine] = []
     @Published var showShareSheet = false
+    /// A frame captured at half the clip's duration, pre-generated off the
+    /// main thread once the render completes and cached for reuse across
+    /// DONE/RE-SHARE presentations, since `LPLinkMetadata`'s callback is
+    /// synchronous and can't itself await an `AVAssetImageGenerator` call.
+    @Published private(set) var shareThumbnail: UIImage?
 
     private let engine: AudioEngineController
     private let imageName: String
@@ -92,6 +98,14 @@ final class RenderViewModel: ObservableObject {
             setLine(key: "captured", text: "> SIGNAL CAPTURED [OK]")
             overallProgress = 1
             stage = .complete(url)
+
+            // Pre-generate the share-sheet preview thumbnail (a mid-clip
+            // frame, since the clip fades up from black) off the main
+            // thread before presenting -- LPLinkMetadata's imageProvider
+            // callback is synchronous, so it must already be cached by the
+            // time the share sheet asks for it.
+            shareThumbnail = await ShareThumbnailGenerator.generate(for: url)
+            guard !Task.isCancelled else { return }
             showShareSheet = true
         } catch is CancellationError {
             // User cancelled; RenderScreen dismisses itself and this task's
@@ -176,7 +190,7 @@ struct RenderScreen: View {
         .onAppear { viewModel.start() }
         .sheet(isPresented: $viewModel.showShareSheet) {
             if case .complete(let url) = viewModel.stage {
-                ShareSheet(items: [url])
+                ShareSheet(items: [VideoShareItem(url: url, thumbnail: viewModel.shareThumbnail)])
             }
         }
     }
