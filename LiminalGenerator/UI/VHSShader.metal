@@ -16,7 +16,8 @@
 //      implemented as a similarly tight, clearly-legible period in point
 //      space (~2.4pt) rather than a literal fraction-of-848 rescale, which
 //      at typical on-screen card sizes would collapse to sub-pixel noise.
-//    - grain: animated luma noise, amplitude ~0.06-0.09, refreshed/frame.
+//    - grain: animated luma noise, amplitude 0.019 (reduced 75% from the
+//      original ~0.06-0.09 pinned range per a later addendum), refreshed/frame.
 //    - tracking glitch: ~20-40px band (@848 ref, expressed as a uv-fraction
 //      of height so it *is* reference-scaled) sweeping vertically over
 //      ~0.2-0.4s, recurring every ~4-9s (randomized).
@@ -92,9 +93,11 @@ half4 vhsEffect(float2 position, SwiftUI::Layer layer, float2 size, float time, 
     float scanMul = mix(1.0 - scanStrength, 1.0, scan);
     color.rgb *= half(scanMul);
 
-    // --- Animated luma grain (amplitude ~0.06-0.09, refreshed every frame).
+    // --- Animated luma grain (amplitude 0.019 — reduced 75% from the prior
+    // 0.075 per SPEC.md addendum; kept in parity with the render pipeline's
+    // Core Image grain amplitude), refreshed every frame.
     float grainSeed = vhsHash(uv * size + fmod(time * 24.0, 1000.0));
-    color.rgb += half3((grainSeed - 0.5) * 0.075);
+    color.rgb += half3((grainSeed - 0.5) * 0.019);
 
     // --- Tracking-glitch band: brightened noise burst on top of the smear.
     float glitchNoise = vhsHash(uv * size + time * 37.0) - 0.5;

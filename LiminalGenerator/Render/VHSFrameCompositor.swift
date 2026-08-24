@@ -423,7 +423,7 @@ final class VHSFrameCompositor: @unchecked Sendable {
         // frame-indexed seed above (a fresh window of the pre-baked noise
         // field each frame reads as animated grain without regenerating
         // random noise per pixel per frame).
-        let strength: CGFloat = 0.075
+        let strength: CGFloat = 0.019
         let recentered = CIFilter.colorMatrix()
         recentered.inputImage = window
         recentered.rVector = CIVector(x: strength, y: 0, z: 0, w: 0)

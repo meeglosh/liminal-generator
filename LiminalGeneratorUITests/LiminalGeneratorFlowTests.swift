@@ -235,9 +235,12 @@ final class LiminalGeneratorFlowTests: XCTestCase {
         XCTAssertTrue(renderFinished, "Render should complete (DONE button should appear) within 90s")
 
         // The share sheet auto-presents the moment rendering completes.
-        // Give it a moment to finish its presentation animation, then
-        // screenshot whatever is on screen (share sheet if it showed).
-        _ = waitFor(timeout: 2) { false }
+        // Give it a moment to finish its presentation animation AND for the
+        // LPLinkMetadata preview thumbnail to finish loading async (the
+        // share sheet's preview row loads its image off the main thread
+        // after presentation), then screenshot whatever is on screen (share
+        // sheet if it showed).
+        _ = waitFor(timeout: 3.5) { false }
         saveScreenshot(app, name: "06_share_sheet.png")
 
         dismissShareSheetIfPresent(app)

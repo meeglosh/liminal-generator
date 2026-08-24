@@ -145,7 +145,13 @@ App Store Connect app id `6804471660`, app name "Liminal Generator".
   "LIMINAL GENERATOR" watermark bottom-right (baked pre-fade so black lead-in/out stays pure); share
   sheet shows a mid-clip thumbnail via UIActivityItemSource + LPLinkMetadata (pre-generated and cached
   after render); VHS look intensified live + rendered to matching pinned values (scanlines 0.18,
-  grain 0.075, tracking glitch every 4–9s, +50% edge chroma, chroma bleed). 120s render measured at
+  grain 0.019 — was 0.075, reduced 75% on user feedback, keep live/render matched; tracking glitch every
+  4–9s, +50% edge chroma, chroma bleed). Splash is deliberately CLEAN of VHS texture (no ScanlineOverlay,
+  static at 0.03) — only the image card carries the heavy look. Share-sheet thumbnail: LPLinkMetadata
+  must be fed PRE-ENCODED JPEG data via NSItemProvider(item:typeIdentifier:) on BOTH imageProvider and
+  iconProvider — a lazy NSItemProvider(object: UIImage) gets dropped by LinkPresentation's low-fidelity
+  encoder ("can't encode without computation" in console) and the preview falls back to black.
+  120s render measured at
   ~56s — inside the ~60s budget with slim margin; the glitch band's full-frame materialize is the lever
   if more headroom is needed.
 - App starts idle at "PLAY ▶" (deliberate; an early build auto-played on launch — don't regress).

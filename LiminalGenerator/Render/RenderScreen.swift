@@ -105,6 +105,9 @@ final class RenderViewModel: ObservableObject {
             // callback is synchronous, so it must already be cached by the
             // time the share sheet asks for it.
             shareThumbnail = await ShareThumbnailGenerator.generate(for: url)
+            #if DEBUG
+            print("[SHARE_DEBUG] shareThumbnail generated: \(shareThumbnail != nil), size=\(shareThumbnail?.size ?? .zero)")
+            #endif
             guard !Task.isCancelled else { return }
             showShareSheet = true
         } catch is CancellationError {

@@ -33,7 +33,7 @@ private struct StaticNoiseTexture: View {
                 y += cell
             }
         }
-        .opacity(0.06)
+        .opacity(0.03)
         .allowsHitTesting(false)
     }
 }
@@ -70,7 +70,6 @@ struct SplashView: View {
         ZStack {
             Color.liminalSurfaceContainerLowest.ignoresSafeArea()
             StaticNoiseTexture().ignoresSafeArea()
-            ScanlineOverlay(opacity: 0.12).ignoresSafeArea()
 
             VStack(spacing: 0) {
                 Spacer()
