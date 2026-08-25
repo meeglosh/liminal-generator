@@ -1,12 +1,17 @@
 # Liminal Generator — Session Handoff
 
-Last updated: 2026-08-23. Status: **v1.0 (3) live on TestFlight** (internal group); build (3) shipped the
-real 24dB COLOR filter, waveform chips, BASSLINE section, and arp range clamp. Since that upload, in the
-same session, the ENTIRE MUSIC ENGINE PIVOTED (SPEC.md Addendum 3): the arpeggio sequencer was replaced by
-an ambient pad-chord composer emulating popular liminal tracks (reference "Snowfall" — Øneheart ×
-reidenshi): slow 4-chord minor pad progressions, sparse floating pentatonic melody, sub-bass on chord
-roots, always-on tempo-synced "breathing" swell. **The pad engine is not in build (3) yet** — see "State /
-known items".
+Last updated: 2026-08-25. Status: **v1.0 (7) live on TestFlight** (internal group) — repo `main` and
+TestFlight are in sync; every feature below is shipped. Build history (all 2026-08-23/24): (1) initial
+app, synthesized 808 drums; (2) CC0 loop drums + square images + SPEED/COLOR v1 + straight arps; (3) real
+24dB COLOR filter + waveform chips + BASSLINE + arp clamp; (4) **ambient pad engine** (SPEC.md Addendum 3
+— pad-chord composer in the style of "Snowfall" by Øneheart × reidenshi: slow 4-chord minor progressions,
+sparse pentatonic melody, sub-bass on chord roots, breathing swell; replaced the arpeggio sequencer);
+(5) NOSTALGIA Juno-106 BBD chorus; (6) deliberate slider gestures + smooth carousel + share thumbnail +
+watermark + VHS-tape splash icon + intensified VHS look; (7) clean splash + grain −75% + share-preview
+thumbnail encoding fix. **Open item:** the build-(7) share-preview fix addressed a real logged
+LinkPresentation failure but the original black-preview bug only ever reproduced on a physical device —
+awaiting the user's on-device confirmation; if still black, gather device console logs around
+LinkPresentation next.
 
 ## What this is
 Free iOS app that generates liminal-style ambient music (random arpeggios + optional lo-fi drums,
@@ -113,11 +118,12 @@ App Store Connect app id `6804471660`, app name "Liminal Generator".
    require ~3 consecutive `VALID` reads.
 
 ## State / known items
-- Build 1.0 (3): uploaded + VALID 2026-08-23. Internal testers received it. Contains loop drums, square
-  images, SPEED, real COLOR filter, waveform chips, BASSLINE, arp range clamp. **Does NOT contain the
-  ambient pad engine** (Addendum 3 — landed after that upload, same session; the user was sent a
-  30s audio sample to approve the sound before shipping) — bump `CFBundleVersion` to 4 and re-ship when
-  the user approves (see "Release / TestFlight" above).
+- Build 1.0 (7): uploaded + VALID 2026-08-24, current on TestFlight, matches repo `main` exactly. For the
+  next release, bump `CFBundleVersion` to 8 and follow "Release / TestFlight" above (the whole pipeline —
+  archive → export → altool upload → poll — is proven and takes ~5 min plus Apple's processing).
+- OPEN: share-sheet preview thumbnail fix (build 7) needs on-device confirmation — the bug (black
+  preview) never reproduced in the simulator. If the user reports it still black, capture device console
+  logs filtered on "LinkPresentation" while opening the share sheet.
 - Drums are now playback of 10 bundled CC0 lo-fi hip-hop loops (Freesound.org, uploader "holizna"),
   not synthesized 808 hits — see `LiminalGenerator/Resources/Loops/LICENSES-LOOPS.md` for full
   per-file source/license records.
