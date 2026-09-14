@@ -2,48 +2,16 @@
 //  VHSFrameCompositor.swift
 //  LiminalGenerator
 //
-//  Per-frame video compositor for ClipRenderer. Visually matches the live
-//  Metal shader (UI/VHSShader.metal): 3-tap edge-weighted chroma
-//  aberration, sine scanlines, luma grain, vignette, an occasional
-//  vertically-sweeping tracking-glitch band, plus the baked VCR OSD
-//  (timestamp/REC/SP) and a bottom-right "LIMINAL GENERATOR" watermark,
-//  all composited with Core Image.
+//  Per-frame Core Image counterpart of the live slideshow's Metal effect.
+//  Original implementation inspired by NTSCRT's signal -> CRT pipeline:
+//  horizontal chroma softness, restrained bloom, tape weave, head switching,
+//  scanlines, grain and occasional tracking errors. This is a lightweight
+//  approximation, not ntsc-rs or RetroArch shader integration.
 //
-//  Intensity parameters below implement the PINNED targets from SPEC.md
-//  Addendum 5 item 5 (shared with the live Metal shader so live playback
-//  and the rendered MP4 read as the same look):
-//    - scanlines: ~0.18 strength, ~2px period @848px, ±20% temporal
-//      modulation
-//    - grain: animated luma noise, amplitude ~0.06-0.09, refreshed per
-//      frame
-//    - tracking glitch: ~20-40px band @848px, sweeping vertically over
-//      ~0.2-0.4s, every ~4-9s (randomized, seeded once per render instance
-//      so different renders get different -- but reproducible -- timing)
-//    - chroma aberration: edge magnitude +~50% vs the previous build
-//    - chroma bleed: subtle overall desaturation + soft color smear
-//    - vignette: unchanged
-//
-//  Performance: everything that does NOT depend on time or frame content
-//  (chroma aberration, chroma bleed/desaturation, vignette) is baked into
-//  a single flat `baseImage` bitmap exactly once in `init`. The scanline
-//  pattern is also shaped once (its *strength* is modulated per frame via
-//  a single cheap colorMatrix pass, not re-shaped). The watermark is drawn
-//  once (its text never changes) and composited pre-fade every frame so it
-//  fades to black with the rest of the picture. Each of the (up to) 3600
-//  output frames then only pays for: a translated sample of a pre-baked
-//  noise field (grain), a scalar-modulated multiply of the pre-baked
-//  scanline pattern, an occasional cheap strip-shift + noise boost
-//  (tracking glitch, only active ~6-12 frames every few seconds), a cached
-//  OSD bitmap keyed by (second, blink-state) instead of a fresh Core Text
-//  layout per frame, a static watermark composite, and a fade gain.
-//
-//  Single-writer usage: `render(frameIndex:gain:into:)` is only ever
-//  called sequentially, in increasing frame order, from ClipRenderer's
-//  video pump task -- never concurrently -- so the small mutable state
-//  used for the tracking-glitch state machine and the OSD cache is safe
-//  without extra synchronization. `@unchecked Sendable` documents that
-//  contract (same pattern as `AudioEngineController`'s
-//  `InterleavedScratch`).
+//  Color softness/glow/vignette are baked once. Per-frame work adds motion,
+//  scanlines and grain before cached OSD/watermark overlays and export fades.
+//  render(frameIndex:gain:into:) is called sequentially by the video pump;
+//  the tracking state and OSD cache rely on this single-writer contract.
 //
 
 import CoreImage
@@ -157,7 +125,7 @@ final class VHSFrameCompositor: @unchecked Sendable {
         let blinkWindow = max(1, Int(fps) / 2)
         let recOn = (frameIndex / blinkWindow) % 2 == 0
 
-        var frame = baseImage
+        var frame = applyTapeMotion(to: baseImage, frameIndex: frameIndex)
 
         frame = applyScanlines(to: frame, frameIndex: frameIndex)
         frame = applyGrain(to: frame, frameIndex: frameIndex)
@@ -199,8 +167,7 @@ final class VHSFrameCompositor: @unchecked Sendable {
 
     private static func buildProcessedBase(source: CIImage, targetSize: CGSize, context: CIContext) -> CIImage {
         let filled = aspectFill(source, to: targetSize)
-        let aberrated = applyChromaAberration(filled, size: targetSize)
-        let bled = applyChromaBleed(aberrated, size: targetSize)
+        let bled = applyChromaBleed(filled, size: targetSize)
         let vignetted = applyVignette(bled, size: targetSize)
 
         // Materialize once: everything above is time-invariant across the
@@ -225,104 +192,54 @@ final class VHSFrameCompositor: @unchecked Sendable {
         return scaled.cropped(to: cropRect).transformed(by: CGAffineTransform(translationX: -cropRect.origin.x, y: -cropRect.origin.y))
     }
 
-    /// 3-tap channel-split chroma aberration, blended back toward the
-    /// unshifted original near the horizontal center -- an offline analog
-    /// of the live shader's per-pixel edge falloff. Edge magnitude is
-    /// pinned +~50% vs the previous build (3.0px -> 4.5px offset).
-    private static func applyChromaAberration(_ image: CIImage, size: CGSize) -> CIImage {
-        let extent = CGRect(origin: .zero, size: size)
-        let offset: CGFloat = 4.5
-
-        func isolate(_ img: CIImage, r: CGFloat, g: CGFloat, b: CGFloat) -> CIImage {
-            let m = CIFilter.colorMatrix()
-            m.inputImage = img
-            m.rVector = CIVector(x: r, y: 0, z: 0, w: 0)
-            m.gVector = CIVector(x: 0, y: g, z: 0, w: 0)
-            m.bVector = CIVector(x: 0, y: 0, z: b, w: 0)
-            m.aVector = CIVector(x: 0, y: 0, z: 0, w: 1)
-            return m.outputImage ?? img
-        }
-
-        let redOnly = isolate(image, r: 1, g: 0, b: 0)
-            .transformed(by: CGAffineTransform(translationX: offset, y: 0))
-        let greenOnly = isolate(image, r: 0, g: 1, b: 0)
-        let blueOnly = isolate(image, r: 0, g: 0, b: 1)
-            .transformed(by: CGAffineTransform(translationX: -offset, y: 0))
-
-        let add1 = CIFilter.additionCompositing()
-        add1.inputImage = redOnly
-        add1.backgroundImage = greenOnly
-        let rg = (add1.outputImage ?? greenOnly).cropped(to: extent)
-
-        let add2 = CIFilter.additionCompositing()
-        add2.inputImage = blueOnly
-        add2.backgroundImage = rg
-        let aberrated = (add2.outputImage ?? rg).cropped(to: extent)
-
-        // Edge-weight mask: 0 (show original) at the horizontal center,
-        // ramping to 1 (show aberrated) toward the left/right edges.
-        let leftGradient = CIFilter.smoothLinearGradient()
-        leftGradient.point0 = CGPoint(x: size.width * 0.5, y: 0)
-        leftGradient.point1 = CGPoint(x: 0, y: 0)
-        leftGradient.color0 = CIColor(red: 0, green: 0, blue: 0, alpha: 1)
-        leftGradient.color1 = CIColor(red: 1, green: 1, blue: 1, alpha: 1)
-        let leftHalf = (leftGradient.outputImage ?? CIImage.empty())
-            .cropped(to: CGRect(x: 0, y: 0, width: size.width / 2, height: size.height))
-
-        let rightGradient = CIFilter.smoothLinearGradient()
-        rightGradient.point0 = CGPoint(x: size.width * 0.5, y: 0)
-        rightGradient.point1 = CGPoint(x: size.width, y: 0)
-        rightGradient.color0 = CIColor(red: 0, green: 0, blue: 0, alpha: 1)
-        rightGradient.color1 = CIColor(red: 1, green: 1, blue: 1, alpha: 1)
-        let rightHalf = (rightGradient.outputImage ?? CIImage.empty())
-            .cropped(to: CGRect(x: size.width / 2, y: 0, width: size.width / 2, height: size.height))
-
-        let combineMask = CIFilter.sourceOverCompositing()
-        combineMask.inputImage = rightHalf
-        combineMask.backgroundImage = leftHalf
-        let mask = (combineMask.outputImage ?? leftHalf).cropped(to: extent)
-
-        let blend = CIFilter.blendWithMask()
-        blend.inputImage = aberrated
-        blend.backgroundImage = image
-        blend.maskImage = mask
-        return (blend.outputImage ?? aberrated).cropped(to: extent)
-    }
-
-    /// Subtle overall chroma desaturation + a soft, low-opacity blurred
-    /// blend back on top -- classic VHS "color softness"/bleed: color
-    /// detail smears a touch while luma (from the sharp layer beneath)
-    /// stays legible. Time-invariant, so baked into the static base.
+    /// Separate luminance from horizontally softened color, inspired by
+    /// analog video's lower chroma bandwidth. Baked once per export.
     private static func applyChromaBleed(_ image: CIImage, size: CGSize) -> CIImage {
         let extent = CGRect(origin: .zero, size: size)
+        let blur = CIFilter.motionBlur()
+        blur.inputImage = image.clampedToExtent()
+        blur.radius = Float(size.width * 4 / 848)
+        blur.angle = 0
+        let soft = (blur.outputImage ?? image).cropped(to: extent)
 
         let controls = CIFilter.colorControls()
-        controls.inputImage = image
+        controls.inputImage = soft
         controls.saturation = 0.88
-        controls.brightness = 0
-        controls.contrast = 1.0
-        let desaturated = (controls.outputImage ?? image).cropped(to: extent)
+        // CIColorBlendMode takes hue/saturation from the soft image and
+        // luminosity from the sharp image. Using a blend mode avoids losing
+        // chroma through zero-alpha intermediate images in Core Image.
+        let colorBlend = CIFilter.colorBlendMode()
+        colorBlend.inputImage = controls.outputImage
+        colorBlend.backgroundImage = image
+        let bled = (colorBlend.outputImage ?? image).cropped(to: extent)
+        let bloom = CIFilter.bloom()
+        bloom.inputImage = bled.clampedToExtent()
+        bloom.radius = Float(size.width * 12 / 848)
+        bloom.intensity = 0.12
+        return (bloom.outputImage ?? bled).cropped(to: extent)
+    }
 
-        let blur = CIFilter.gaussianBlur()
-        blur.inputImage = desaturated
-        blur.radius = 1.4
-        let blurred = (blur.outputImage ?? desaturated).cropped(to: extent)
-
-        // Force a constant, low alpha on the blurred copy regardless of its
-        // own alpha channel, then lay it over the sharp desaturated image.
-        let alphaMatrix = CIFilter.colorMatrix()
-        alphaMatrix.inputImage = blurred
-        alphaMatrix.rVector = CIVector(x: 1, y: 0, z: 0, w: 0)
-        alphaMatrix.gVector = CIVector(x: 0, y: 1, z: 0, w: 0)
-        alphaMatrix.bVector = CIVector(x: 0, y: 0, z: 1, w: 0)
-        alphaMatrix.aVector = CIVector(x: 0, y: 0, z: 0, w: 0)
-        alphaMatrix.biasVector = CIVector(x: 0, y: 0, z: 0, w: 0.35)
-        let translucentBlur = (alphaMatrix.outputImage ?? blurred).cropped(to: extent)
-
-        let over = CIFilter.sourceOverCompositing()
-        over.inputImage = translucentBlur
-        over.backgroundImage = desaturated
-        return (over.outputImage ?? desaturated).cropped(to: extent)
+    /// Small full-frame tape weave and a narrow bottom head-switching band.
+    /// Clamp before displacement to avoid exposing black edges. Core Image's
+    /// origin is bottom-left (the live shader's origin is top-left).
+    private func applyTapeMotion(to image: CIImage, frameIndex: Int) -> CIImage {
+        let time = Double(frameIndex) / Double(fps)
+        let weave = sin(time * 2 * .pi * 0.7) * 0.0008 * Double(width)
+        let padded = image.clampedToExtent()
+        let shifted = padded.transformed(by: CGAffineTransform(translationX: weave, y: 0))
+        let bandHeight = CGFloat(height) * 0.035
+        let headShift = sin(time * 2 * .pi * 7) * 0.009 * Double(width)
+        let head = padded.transformed(by: CGAffineTransform(translationX: weave + headShift, y: 0))
+        let mask = CIFilter.smoothLinearGradient()
+        mask.point0 = CGPoint(x: 0, y: bandHeight)
+        mask.point1 = CGPoint(x: 0, y: CGFloat(height) * 0.005)
+        mask.color0 = CIColor(red: 0, green: 0, blue: 0)
+        mask.color1 = CIColor(red: 1, green: 1, blue: 1)
+        let blend = CIFilter.blendWithMask()
+        blend.inputImage = head
+        blend.backgroundImage = shifted
+        blend.maskImage = mask.outputImage
+        return (blend.outputImage ?? shifted).cropped(to: baseExtent)
     }
 
     /// Radial darkening toward the corners, matching the live shader's
@@ -348,20 +265,17 @@ final class VHSFrameCompositor: @unchecked Sendable {
 
     // MARK: - Scanlines (shape baked once, strength modulated per frame)
 
-    /// Precomputes the scanline brightness pattern at the pinned nominal
-    /// strength (~0.18) and ~2px period at the 848px reference frame
-    /// height (`sin(y * pi)`), as a 1px-wide column stretched horizontally
-    /// (each row is a constant brightness, so stretching a single column
-    /// tiles it perfectly). Stored as a full-strength "shape" image;
-    /// `applyScanlines` cheaply rescales its deviation from 1.0 per frame
-    /// to get the pinned ±20% temporal modulation without re-rasterizing.
+    /// A resolved sine pattern scaled to output width, stored as a one-pixel
+    /// column stretched horizontally. Strength is modulated each frame.
     private static func buildScanlinePattern(size: CGSize) -> CIImage {
         let height = max(1, Int(size.height.rounded()))
         var pixels = [UInt8](repeating: 255, count: height * 4)
         let baseStrength = 0.18
-        let frequency = Double.pi // 2*pi / 2px period
+        // A 2px sine sampled at integer rows is constant: sin(n*pi)=0.
+        // Use a resolved 2.4pt-equivalent period, scaled with output width.
+        let frequency = 2 * Double.pi / max(3, Double(size.width) * 2.4 / 390)
         for y in 0..<height {
-            let scan = sin(Double(y) * frequency) * 0.5 + 0.5
+            let scan = sin((Double(y) + 0.5) * frequency) * 0.5 + 0.5
             let mult = 1.0 - baseStrength * (1.0 - scan)
             let v = UInt8(max(0, min(255, (mult * 255).rounded())))
             pixels[y * 4 + 0] = v

@@ -1,5 +1,18 @@
 # Liminal Generator — Session Handoff
 
+Last updated: 2026-09-14. Branch: `codex/ntscrt-vhs-slideshow`.
+
+Build **1.0 (8)** is live on TestFlight for the **Internal** group.
+Signed Release archive, App Store IPA export and upload succeeded on 2026-09-14;
+App Store Connect reports VALID and IN_BETA_TESTING. Next build number: 9.
+Includes relative animation timing, horizontal color bleed, highlight glow,
+tape weave/head switching, and matching export treatment with corrected scanlines.
+Details and verification: `docs/VHS-effect.md`. Both existing simulator UI tests
+passed; final export color pass was rebuilt and checked with an eight-second render.
+Physical-device performance and artistic tuning are the next checks.
+
+### Previous release (historical)
+
 Last updated: 2026-08-25. Status: **v1.0 (7) live on TestFlight** (internal group) — repo `main` and
 TestFlight are in sync; every feature below is shipped. Build history (all 2026-08-23/24): (1) initial
 app, synthesized 808 drums; (2) CC0 loop drums + square images + SPEED/COLOR v1 + straight arps; (3) real

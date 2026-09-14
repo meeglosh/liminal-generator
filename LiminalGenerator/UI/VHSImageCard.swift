@@ -23,7 +23,7 @@ private extension View {
             .float(Float(time)),
             .float(energy)
         )
-        return self.layerEffect(shader, maxSampleOffset: CGSize(width: 24, height: 0))
+        return self.layerEffect(shader, maxSampleOffset: CGSize(width: size.width * 0.06 + 12, height: 0))
     }
 }
 
@@ -31,11 +31,16 @@ private struct VHSFilteredImage: View {
     let assetName: String
     let isActive: Bool
     let isPlaying: Bool
+    let timeOrigin: Date
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: !isActive)) { context in
+        TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: !isActive || reduceMotion || scenePhase != .active)) { context in
             GeometryReader { geo in
-                let t = context.date.timeIntervalSinceReferenceDate
+                // Subtract in Double before converting to the shader Float. All
+                // carousel pages share this origin so swipes preserve the phase.
+                let t = reduceMotion ? 0 : max(0, context.date.timeIntervalSince(timeOrigin))
                 Image(assetName)
                     .resizable()
                     .aspectRatio(contentMode: .fill)
@@ -121,6 +126,7 @@ struct VHSImageCard: View {
     let isPlaying: Bool
     let onTogglePlay: () -> Void
 
+    @State private var timeOrigin = Date()
     @State private var dragOffset: CGFloat = 0
     @State private var isDragging = false
     /// True while the released drag is animating (spring/ease) to its
@@ -147,11 +153,11 @@ struct VHSImageCard: View {
                     let neighborsActive = isDragging || isSettling
 
                     ZStack {
-                        VHSFilteredImage(assetName: ImageLibrary[index - 1].assetName, isActive: neighborsActive, isPlaying: isPlaying)
+                        VHSFilteredImage(assetName: ImageLibrary[index - 1].assetName, isActive: neighborsActive, isPlaying: isPlaying, timeOrigin: timeOrigin)
                             .offset(x: -width + dragOffset)
-                        VHSFilteredImage(assetName: ImageLibrary[index].assetName, isActive: true, isPlaying: isPlaying)
+                        VHSFilteredImage(assetName: ImageLibrary[index].assetName, isActive: true, isPlaying: isPlaying, timeOrigin: timeOrigin)
                             .offset(x: dragOffset)
-                        VHSFilteredImage(assetName: ImageLibrary[index + 1].assetName, isActive: neighborsActive, isPlaying: isPlaying)
+                        VHSFilteredImage(assetName: ImageLibrary[index + 1].assetName, isActive: neighborsActive, isPlaying: isPlaying, timeOrigin: timeOrigin)
                             .offset(x: width + dragOffset)
 
                         VHSOSDOverlay(timestamp: timestamp, isPlaying: isPlaying, onTogglePlay: onTogglePlay)
