@@ -1,4 +1,4 @@
-## Unreleased on branch `codex/ntscrt-vhs-slideshow` (2026-09-17)
+## Branch `codex/ntscrt-vhs-slideshow` changes (2026-09-17) — through build 1.0.1 (14), plus unreleased items below
 - PLAY button attract pulse + first-tap placement: before the user's first tap of PLAY in a session, the
   control sits centered in the image area at 2x size, pulsing (~1.06x scale on top of that) and glowing
   (swelling CRT-green shadow) on a ~1.4s autoreversing loop (`VHSImageCard.swift`/`VHSOSDOverlay`). On that
@@ -40,12 +40,43 @@
   drives a real play/pause cycle and captures screenshot bursts through both CRT transitions as test attachments.
 - **Shipped in build 1.0.1 (13)**: the BREAKS toggle, the original CRT off/switch-on power-state treatment, and
   the PLAY attract pulse (bottom-left, not yet centered/2x pre-tap) — see "Latest TestFlight upload" below.
-  **NOT in build 13** — landed after that upload, still only verified on simulator: the PLAY centered/2x
+  **Shipped in build 1.0.1 (14)**: the four refinements that landed after build 13 — the PLAY centered/2x
   pre-tap placement, the dead-CRT-glass off-state backdrop (replacing the earlier faint-radial-on-black
-  treatment), the location-chip/OSD opacity sync, and the AGE default change to 0.1. These four ride the next
-  build.
-- Current verification state: full 3-test XCUITest suite passes (`xcodebuild test`); `python3
-  tests/run-drum-break-tests.py` passes, including the mid-break toggle-release regression coverage.
+  treatment), the location-chip/OSD opacity sync, and the AGE default change to 0.1 — see "TestFlight build 14"
+  below.
+- **Not yet in TestFlight (unreleased after build 14)** — two more features landed on this branch after build
+  14 shipped; both are targeted for the NEXT build, not 14:
+  - **First-launch PLAY typewriter reveal**: in the pre-first-tap centered/2x state, the "PLAY" label now
+    types itself in character by character (~70ms/char) with a blinking `▮` cursor
+    (`VHSOSDOverlay.typewriterPlayLabel`/`runIntroTypingIfNeeded` in `VHSImageCard.swift`) — the same idiom as
+    RenderScreen's "ENCODING ANALOG SIGNAL▮" header. The cursor disappears once typing completes, and only
+    then does the attract pulse/glow (above) start — sequenced on purpose so they don't fight for attention.
+    Runs once per session (`introStarted`), skipped entirely under Reduce Motion, and a tap mid-reveal aborts
+    cleanly. The typed text sits over a zero-opacity full "PLAY▮" placeholder so the button's measured
+    size/tap target/centering offset never shift as characters appear, and VoiceOver always gets the complete
+    "Play"/"Pause" label regardless of how much has visually typed. **Architectural point**: the reveal is
+    keyed off a real `splashDismissed` environment value (`LiminalGeneratorApp.swift` flips it only once the
+    splash's fade-out animation actually completes) — NOT a hardcoded delay. See "Intermittent test failure"
+    below for why that matters.
+  - **CRT power-switch click sounds**: `play()`/`pause()` each fire a short, fully procedural (no audio
+    assets) synthesized CRT power-switch click — new `Audio/PowerClickGenerator.swift`. See SPEC.md's new
+    "CRT power-switch click sounds" section for the full design (dry routing, offline-export exclusion, the
+    ~82ms deferred-pause tradeoff, and the `#if DEBUG` test accessors on `AudioEngineController`).
+- **Intermittent test failure and resolution (2026-09-17)**: two UI tests failed intermittently with the PLAY
+  tap never reaching the button's action — `onTogglePlay` never fired, `isPlaying` never flipped. Misleading
+  symptom: XCUITest reported the synthesized tap itself as successful (no "not hittable" error). A raw
+  coordinate tap via `idb`, bypassing accessibility-element lookup entirely, still landed on and activated the
+  button, confirming real users could always tap it — this was never a user-facing hit-testing bug.
+  Bisection traced it to the typewriter reveal's original implementation, which started the reveal from a
+  hardcoded ~2.4s guess at the splash's hold+fade duration; because `VHSImageCard`'s mount and the app's
+  actual splash timer are two independently-started clocks, they drifted under load (first-use Metal shader
+  compilation being one real cause) and occasionally desynced enough to break the reveal/hit-target timing.
+  Fixed by replacing the guess with the `splashDismissed` environment signal described above, keyed to the
+  splash's real completion rather than a duration estimate.
+- Current verification state: full 3-test XCUITest suite passes (`xcodebuild test`) and `python3
+  tests/run-drum-break-tests.py` passes, both confirmed against the current tree with the typewriter intro and
+  power-click features present, in addition to everything shipped in build 14 (including the mid-break
+  toggle-release regression coverage).
 - **Known test flake**: `testFullGeneratorFlow` intermittently fails with "Application
   com.gapco.LiminalGenerator is not running" after many consecutive `xcodebuild test` runs in one simulator
   session. Not a regression — clears after `xcrun simctl shutdown` + `boot` on the target simulator.
@@ -151,7 +182,10 @@ contract used to build it). Design system: `img/stitch_liminal_space_generator/l
   `Lowpass24dB`), `AudioEngineController` (AVAudioEngine graph: source node → largeHall2 reverb → mixer;
   offline render via second engine in manual rendering mode, seeded with the same decoded `LoopBuffer`
   AND all live params — speed/color/waveform/bass*/scene/breathing phase — as active playback). Final
-  tanh soft-clip guards against clipping at extreme params.
+  tanh soft-clip guards against clipping at extreme params. New (unreleased, see branch section above):
+  `PowerClickGenerator.swift` — a fully procedural, dry, no-assets CRT power-switch click fired by
+  `play()`/`pause()` on a second `AVAudioSourceNode` wired straight to `mainMixerNode`, never through the
+  reverb and never present in `performOfflineRender`'s own throwaway engine — see SPEC.md.
   - **Ambient pad engine (SPEC.md Addendum 3 — supersedes the old arpeggio sequencer)**: emulates popular
     liminal/dreamcore tracks ("Snowfall" — Øneheart × reidenshi). `regenerateMelody()` rolls a "scene"
     (kept in the pinned `ArpeggioPattern` type name): a random MINOR key, a 4-chord/4-bar looping
@@ -176,8 +210,9 @@ contract used to build it). Design system: `img/stitch_liminal_space_generator/l
     is ALSO scaled by the speed multiplier (tape-varispeed: loop pitch shifts with tempo); synth pitches
     are NOT affected by speed, only timing. Breathing swell is tick-synced so it scales with SPEED too.
 - `LiminalGenerator/UI` — SplashView, MainView, VHSImageCard (swipe paging w/ wraparound; also owns the
-  CRT off/on power-state animation and the PLAY button's pre-first-tap attract pulse — see "State / known
-  items"), `VHSShader.metal` (scanlines/grain/chroma aberration/vignette/tracking jitter via SwiftUI
+  CRT off/on power-state animation, the PLAY button's pre-first-tap attract pulse, and (unreleased, see
+  branch section above) the first-launch PLAY typewriter reveal keyed off `LiminalGeneratorApp`'s
+  `splashDismissed` signal — see "State / known items"), `VHSShader.metal` (scanlines/grain/chroma aberration/vignette/tracking jitter via SwiftUI
   layerEffect; out-of-bounds samples return transparent so paged views don't bleed onto their neighbors),
   VHSTimestamp (random late-80s–90s OSD date), deck-style Components, AboutSheet.
 - `LiminalGenerator/Render` — RenderScreen ("ENCODING ANALOG SIGNAL" terminal UI), ClipRenderer
@@ -228,13 +263,18 @@ App Store Connect app id `6804471660`, app name "Liminal Generator".
 - Build 1.0 (7): uploaded + VALID 2026-08-24, current on TestFlight, matches repo `main` exactly. For the
   next release, bump `CFBundleVersion` to 8 and follow "Release / TestFlight" above (the whole pipeline —
   archive → export → altool upload → poll — is proven and takes ~5 min plus Apple's processing).
-- CRT power state / PLAY attract pulse / BREAKS toggle (branch `codex/ntscrt-vhs-slideshow`, see "Unreleased"
-  above): the original versions of these three shipped in TestFlight build 1.0.1 (13) (see "TestFlight build
-  13" below). Four refinements on top of them (PLAY centered/2x pre-tap placement, dead-CRT-glass off-state
-  backdrop, location-chip/OSD opacity sync, AGE default 0.1) landed after that upload and are verified on
-  simulator only, not yet in a TestFlight build.
+- CRT power state / PLAY attract pulse / BREAKS toggle (branch `codex/ntscrt-vhs-slideshow`, see the branch
+  section above): the original versions of these three shipped in TestFlight build 1.0.1 (13) (see
+  "TestFlight build 13" below). The four refinements on top of them (PLAY centered/2x pre-tap placement,
+  dead-CRT-glass off-state backdrop, location-chip/OSD opacity sync, AGE default 0.1) shipped in TestFlight
+  build 1.0.1 (14) (see "TestFlight build 14" below). Two further features — the first-launch PLAY
+  typewriter reveal and the CRT power-switch click sounds — landed on the same branch after build 14 and are
+  NOT yet in TestFlight; both are targeted for the next build (15). See the branch section above for full
+  detail, including the intermittent-test-failure incident their bisection uncovered and resolved.
 - OPEN: App Store screenshots under `docs/app-store/screenshots/*.png` still bake in the pre-fix right-edge
-  smear artifact and need regenerating before the next store submission.
+  smear artifact and need regenerating before the next store submission. They also predate the CRT
+  off/switch-on screen treatment and the centered/2x pre-tap PLAY placement, so they no longer represent the
+  app's current look either.
 - OPEN: share-sheet preview thumbnail fix (build 7) needs on-device confirmation — the bug (black
   preview) never reproduced in the simulator. If the user reports it still black, capture device console
   logs filtered on "LinkPresentation" while opening the share sheet.
@@ -315,9 +355,22 @@ Submission 2d528b5c-7f5d-40a4-bc64-fc0141989ebb was submitted at 2026-09-15T13:4
 
 Build **1.0.1 (13)** uploaded to TestFlight successfully. Delivery UUID `da851084-219f-4b78-bf2a-ea0de4a1e8d7`.
 Includes the BREAKS toggle, the original CRT off/switch-on power-state treatment, and the PLAY attract pulse
-(see the "Unreleased" section above) — but not the four refinements that landed after this upload (PLAY
+(see the branch section above) — but not the four refinements that landed after this upload (PLAY
 centered/2x pre-tap placement, dead-CRT-glass off-state backdrop, location-chip/OSD opacity sync, AGE default
 0.1). The marketing version had to move from **1.0 to 1.0.1**: App Store Connect rejected a 1.0 build with
-errors 90062/90186 because the 1.0 train closed once 1.0 was approved from the earlier submission above.
-Constraint for future builds: keep incrementing the marketing version (can't reopen a closed/approved train),
-not just `CFBundleVersion`. Next build number: 14.
+errors 90062/90186 because the 1.0 train closed once 1.0 was **approved/released** from the earlier submission
+above. Constraint for future builds: a marketing-version train only needs bumping once its current version has
+been approved/released — merely uploading a build to TestFlight does not close the train, so further builds
+can reuse the same marketing version (as build 14 below did) until that version is actually approved. Next
+build number: 14.
+
+### TestFlight build 14 — September 17, 2026
+
+Build **1.0.1 (14)** uploaded to TestFlight successfully. Delivery UUID `b2c04972-b20d-4872-9414-935c12771183`.
+Ships from commit `a8f999e` on branch `codex/ntscrt-vhs-slideshow` ("Centered first-run PLAY, dead-CRT glass,
+chip sync, lighter AGE; build 14"). Contains the four refinements that were unreleased as of build 13: PLAY
+starts centered at 2x pre-first-tap and glides to bottom-left on first tap (no re-centering on later pauses),
+the dead-CRT-glass off-state backdrop (replacing the near-black treatment), the location chip hiding in sync
+with the OSD/screen power state, and the AGE default lowered to 0.1. The marketing version stayed at **1.0.1**
+(no bump needed) — the 1.0 train only closed because 1.0 was approved/released; 1.0.1 had only been uploaded
+to TestFlight, so its train remained open. Next build number: 15.

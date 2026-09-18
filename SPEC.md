@@ -426,7 +426,7 @@ header, not a guaranteed received Messages preview. Confirm actual receiving-dev
 ## Splash restored (2026-09-14, after build 9)
 At the user’s request, the two-second splash and VHS tape icon are restored. This supersedes the simplification review’s splash removal. The SwiftUI debug harness entry point remains unchanged.
 
-## CRT power state + PLAY attract pulse (2026-09-17)
+## CRT power state + PLAY attract pulse + typewriter intro (2026-09-17)
 Pinned addition to `AudioEngineController`:
 ```swift
 @MainActor
@@ -448,6 +448,28 @@ image swipes and later pauses, so this "has the user ever pressed play" flag liv
 (not the per-image OSD overlay that gets rebuilt on every swipe) and is keyed off `hasTappedPlay`, not the
 screen's on/off state. Deliberately: PLAY does **not** re-center when the user pauses later in the session —
 it stays bottom-left permanently once tapped once.
+
+**First-launch PLAY typewriter reveal**: pre-first-tap, while PLAY sits centered/2x, its label types itself
+in character by character (~70ms/char, `VHSOSDOverlay.introMsPerChar`) with a blinking `▮` cursor — the same
+idiom as RenderScreen's "ENCODING ANALOG SIGNAL▮" header. The cursor vanishes the instant typing finishes,
+and only then does the attract pulse/glow above start (`introComplete` gates `updateAttractAnimation()`) —
+they're deliberately sequenced, not simultaneous, so they don't compete for attention. Runs once per session,
+guarded by `introStarted`; a tap mid-type aborts it cleanly (`playLabel` switches to the plain instant label
+the moment `hasTappedPlay` flips, so nothing is left to finish revealing). Under `accessibilityReduceMotion`
+the typing is skipped entirely — the finished label appears immediately. The typed text is layered over a
+zero-opacity full-width "PLAY▮" placeholder so the button's laid-out size, tap target, and the centering-offset
+math above never change as characters appear; VoiceOver's `.accessibilityLabel` always reports the complete
+"Play"/"Pause" string, never a partial one, independent of how much has visually typed.
+
+**Pinned contract point — do not reintroduce a timing guess**: the reveal is keyed to a real `splashDismissed`
+`EnvironmentValue` (`LiminalGeneratorApp.swift`), set `true` only inside the completion handler of the
+splash's actual fade-out `withAnimation` — i.e. the real moment the splash finishes disappearing, not an
+estimate of when it should. An earlier implementation instead started the reveal from a hardcoded ~2.4s guess
+at the splash's hold+fade duration; because `VHSImageCard`'s own mount and the app's splash timer are two
+independently-started clocks, they drifted under load (first-use Metal shader pipeline compilation being one
+real cause), producing an intermittent failure where the reveal — and the button's actual on-screen hit
+target during it — landed out of sync with what the test/user expected. Route any future "wait for the splash"
+logic through `splashDismissed`, never a duplicated fixed-delay estimate.
 
 **CRT off / switch-on state**: whenever nothing is playing, the VHS image card reads as a dead CRT's glass,
 not near-pure black: a warm charcoal-green base (lifted just off OLED-black with the design system's dark
@@ -487,3 +509,39 @@ break arrangement from build 9. Full detail is in `docs/Drum-breaks.md` (kept as
 - Break **starts** are bar-quantized in both paths. Toggling BREAKS or DRUMS off while a break is already in
   progress releases the gate immediately (on the order of the shared ~6ms smoothing ramp) rather than waiting
   for the next bar boundary.
+
+## CRT power-switch click sounds (2026-09-17)
+New `Audio/PowerClickGenerator.swift`: `play()` and `pause()` each fire a short, fully procedural CRT
+power-switch click — plain-Swift synthesis, zero audio assets. Each click layers a ~1.2ms-decay broadband
+noise "snap" with a ~400Hz-lowpassed noise "body" (decay time constant 10ms on ON, 4ms on OFF — the
+shorter/deader OFF decay is a deliberate part of what makes ON and OFF audibly distinct), plus, ON only, a
+quiet ~2.2–6.5kHz bandpassed "electrostatic bloom" standing in for a CRT's flyback/degauss charge-up. Total
+click duration is ~65ms (ON) / ~22ms (OFF); as measured, ON peaks around 0.68 and decays below -60dBFS by
+~61ms, OFF peaks around 0.67 and clears -60dBFS by ~16ms.
+
+- **Dry by construction**: `PowerClickGenerator` is a second `AVAudioSourceNode` attached to the SAME main
+  `AVAudioEngine` as the music graph, wired straight to `engine.mainMixerNode` — deliberately NOT through
+  `AVAudioUnitReverb` — and it holds no reference to `LiminalDSPCore` at all, so SPACE/AGE/SPEED/COLOR (which
+  live entirely inside `LiminalDSPCore`) can never touch it.
+- **Never reaches offline exports**: `AudioEngineController.performOfflineRender` builds its own throwaway
+  `AVAudioEngine` + `LiminalDSPCore` and never references `PowerClickGenerator` — there is no code path from a
+  click trigger into the offline render graph. Verified by rendering with and without clicks firing and
+  diffing for bit-identical output.
+- **Deferred pause — deliberate, not a bug**: because a real `pause()` must eventually call `engine.pause()`,
+  which halts every node on the shared engine including the click node mid-render, the actual `engine.pause()`
+  call is deferred rather than fired synchronously: `offClickDurationSeconds + 0.06s`, currently **≈82ms**
+  (the OFF click's own ~22ms duration constant, `PowerClickGenerator.offClickDurationSeconds`, plus a fixed
+  60ms cushion for CoreAudio/IO buffering latency) — derived from the click's own synthesis constant rather
+  than a bare magic number. `AudioEngineController.pendingPauseGeneration`, bumped on every `play()`/`pause()`
+  call, invalidates a stale deferred pause if playback resumes (or a later pause supersedes it) before the
+  deferred call fires, so rapid play/pause tapping can never stack up deferred `engine.pause()` calls. Worth
+  recording explicitly: audio audibly continues for that ~82ms after a user taps PAUSE — an intentional
+  tradeoff to let the OFF click render, not a bug.
+- Interruption-driven auto-pause (`AVAudioSession` interruption → `pauseInternal(playClick: false)`) pauses
+  `engine` immediately, with no click and no deferral — only a user's own PAUSE tap gets the deferred-pause/
+  click treatment.
+- `#if DEBUG`-only test accessors on `AudioEngineController` (`isMusicEngineRunningForTesting`,
+  `pendingPauseGenerationForTesting`, `simulateInterruptionPauseForTesting()`) let a headless harness verify
+  the engine's real idle/pause/interruption behavior against production code. They're compiled out of Release
+  builds and exist purely as test scaffolding — deliberately NOT added to the "Pinned API contract" section's
+  code block above, which pins the cross-agent build surface, not test-only introspection.

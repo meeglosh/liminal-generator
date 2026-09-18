@@ -11,6 +11,36 @@
 import SwiftUI
 import UIKit
 
+// MARK: - Splash-dismissed environment signal
+//
+// `LiminalGeneratorApp` shows `SplashView()` for a fixed hold + fade before
+// `MainView` (and this file's `VHSOSDOverlay`) is actually visible to the
+// user. The first-launch PLAY typewriter reveal below needs to know exactly
+// when that's actually happened so it can start the reveal then — NOT after
+// a second, independently-started guess at the same duration. Two separate
+// fixed-delay timers that are assumed to land in sync but each start
+// counting from their own view's mount time (app launch vs. this file's own
+// deep-nested view finally laying out, which is not the same instant,
+// especially under load — first-use Metal shader pipeline compilation in
+// particular can push this view's mount meaningfully later) is exactly the
+// kind of drift that produces a flaky race rather than a wrong-every-time
+// bug. Routing the actual dismissal moment through the environment removes
+// that second guess entirely: this view always starts its reveal keyed to
+// the real event, however long the app took to get there. Defaults to
+// `true` so anything constructed outside `LiminalGeneratorApp`'s own
+// environment (previews, and any future test harness that mounts this view
+// directly) behaves as "already dismissed" rather than waiting forever.
+private struct SplashDismissedKey: EnvironmentKey {
+    static let defaultValue = true
+}
+
+extension EnvironmentValues {
+    var splashDismissed: Bool {
+        get { self[SplashDismissedKey.self] }
+        set { self[SplashDismissedKey.self] = newValue }
+    }
+}
+
 // MARK: - Shader modifier
 
 private extension View {
@@ -108,7 +138,38 @@ private struct VHSOSDOverlay: View {
     /// hardcoding label-width assumptions.
     @State private var buttonSize: CGSize = .zero
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.splashDismissed) private var splashDismissed
     private let blinkTimer = Timer.publish(every: 0.5, on: .main, in: .common).autoconnect()
+
+    // MARK: First-launch PLAY typewriter intro
+    //
+    // Product ask: on first launch, in the centered/2x pre-tap state, "PLAY"
+    // types itself onto the screen character-by-character with a blinking
+    // cursor, like a terminal/VCR OSD reveal — the same visual language as
+    // RenderScreen's "ENCODING ANALOG SIGNAL▮" header and its `▮` cursor.
+    // Runs exactly once per launch (guarded by `introStarted`), only in the
+    // pre-tap state (`!hasTappedPlay`); after the first tap `playLabel`
+    // below stops consulting any of this entirely, so it can never replay
+    // when the screen later goes dark on pause or on image paging.
+
+    /// Characters of "PLAY" revealed so far (0...4). Stays 0 until the
+    /// intro kicks off, jumps straight to 4 for `reduceMotion`.
+    @State private var introTypedCount = 0
+    /// True only while characters are actively being revealed — gates the
+    /// blinking cursor. Chosen (per product direction) to vanish once
+    /// typing completes rather than linger: the attract pulse/glow takes
+    /// over immediately after, and running both at once made them fight
+    /// for attention.
+    @State private var introTyping = false
+    /// True once the intro has finished (or was skipped) — the attract
+    /// pulse is held off until this flips, so it never starts mid-type.
+    @State private var introComplete = false
+    /// Guards `runIntroTypingIfNeeded()` against being kicked off twice.
+    @State private var introStarted = false
+    /// ~60–90ms/char reads as deliberate, typed intent without feeling
+    /// slow; 70ms lands the whole 4-character "PLAY" reveal in well under
+    /// half a second once it starts.
+    private let introMsPerChar: Double = 70
 
     var body: some View {
         ZStack {
@@ -141,8 +202,7 @@ private struct VHSOSDOverlay: View {
             // to pull the eye to it before the user has ever pressed it.
             Button(action: onTogglePlay) {
                 HStack(spacing: 6) {
-                    osdText(isPlaying ? "PAUSE" : "PLAY", size: 16, weight: .bold)
-                        .contentTransition(.identity)
+                    playLabel
                     Text(isPlaying ? "\u{275A}\u{275A}" : "\u{25B6}")
                         .font(.spaceMono(size: 14, weight: .bold))
                         .foregroundColor(.liminalPrimary)
@@ -181,6 +241,26 @@ private struct VHSOSDOverlay: View {
             .shadow(color: .liminalCRTGreenDim.opacity(attractGlowOpacity), radius: attractGlowRadius)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
             .padding(12)
+            // Independent of the visual reveal: VoiceOver must always hear
+            // the full "Play"/"Pause" label, never a half-typed string —
+            // the typewriter intro is a purely visual effect. Overrides
+            // whatever label SwiftUI would otherwise synthesize from the
+            // (possibly partial, pre-tap) text inside the button. Applied
+            // AFTER `.scaleEffect`/`.offset`/`.frame`/`.padding` (not before,
+            // where it originally sat) -- an accessibility modifier placed
+            // before those geometry effects anchors the element's
+            // accessibility/hit-test frame to the PRE-transform layout rect
+            // instead of the actual on-screen (2x, centered) one during the
+            // pre-tap state, which silently swallowed the whole first tap:
+            // XCUITest reported a successful synthesized tap (no "not
+            // hittable" error) at a screen point that was never actually
+            // over the button, so `onTogglePlay` never fired and
+            // `isPlaying` never flipped. Keeping this after the geometry
+            // modifiers, alongside `.accessibilityIdentifier` below (which
+            // was already correctly positioned here and is why existence /
+            // initial-hittable checks passed), keeps the accessible frame
+            // matched to the real hit target through the whole reveal.
+            .accessibilityLabel(isPlaying ? "Pause" : "Play")
             .accessibilityIdentifier("playPauseButton")
         }
         .onReceive(blinkTimer) { _ in
@@ -188,22 +268,116 @@ private struct VHSOSDOverlay: View {
         }
         .onAppear { updateAttractAnimation() }
         .onChange(of: attractPlay) { updateAttractAnimation() }
+        .onChange(of: introComplete) { updateAttractAnimation() }
+        .task { await runIntroTypingIfNeeded() }
+        // Covers the case where this view mounts (and its `.task` above
+        // runs) BEFORE the splash has actually cleared: `runIntroTypingIfNeeded`
+        // returns early without setting `introStarted` when `splashDismissed`
+        // is still false, so this fires the real attempt the moment it
+        // flips true. See `splashDismissed`'s doc comment for why this
+        // replaces a hardcoded guess at the splash's duration.
+        .onChange(of: splashDismissed) {
+            if splashDismissed {
+                Task { await runIntroTypingIfNeeded() }
+            }
+        }
+    }
+
+    /// The PLAY/PAUSE text itself. Before the first tap it's driven by the
+    /// typewriter intro (always "PLAY" — can't be playing without having
+    /// tapped play first); after that first tap it's the plain, instant-flip
+    /// label this button always used pre-typewriter, and none of the intro
+    /// state below is consulted again for the rest of the session.
+    @ViewBuilder
+    private var playLabel: some View {
+        if hasTappedPlay {
+            osdText(isPlaying ? "PAUSE" : "PLAY", size: 16, weight: .bold)
+                .contentTransition(.identity)
+        } else {
+            typewriterPlayLabel
+        }
+    }
+
+    /// Renders "PLAY" revealed character-by-character with a blinking `▮`
+    /// cursor — the same glyph RenderScreen's "ENCODING ANALOG SIGNAL▮"
+    /// header uses. A zero-opacity copy of the FULL "PLAY▮" string sits
+    /// underneath at all times to reserve the final width/height from the
+    /// very first frame: this is what keeps `onGeometryChange` above (and
+    /// therefore the hit target `centeringOffset` positions) stable through
+    /// the whole reveal instead of growing character-by-character. That
+    /// placeholder is `.accessibilityHidden` so it can never surface as a
+    /// second, duplicate accessibility element alongside the button's own
+    /// `.accessibilityLabel`.
+    private var typewriterPlayLabel: some View {
+        let revealed = String("PLAY".prefix(introTypedCount))
+        let cursor = introTyping ? (blinkOn ? "\u{25AE}" : " ") : " "
+        return ZStack(alignment: .leading) {
+            osdText("PLAY\u{25AE}", size: 16, weight: .bold)
+                .opacity(0)
+                .accessibilityHidden(true)
+            osdText(revealed + cursor, size: 16, weight: .bold)
+        }
+    }
+
+    /// Kicks off the first-launch PLAY typewriter intro exactly once — see
+    /// the intro `@State` properties' doc comments above, and
+    /// `splashDismissed`'s, for the full reasoning. Called both from this
+    /// view's own `.task` (covers the common case: the splash is already
+    /// dismissed by the time this mounts, or Reduce Motion applies and the
+    /// splash doesn't matter at all) and from `.onChange(of: splashDismissed)`
+    /// (covers this view mounting first and the splash clearing later) — safe
+    /// to call from both/either since `introStarted` guards the real work to
+    /// a single run, and a call that finds the splash still up simply returns
+    /// without setting that guard so the later call can proceed.
+    private func runIntroTypingIfNeeded() async {
+        guard !introStarted else { return }
+
+        guard !reduceMotion, !hasTappedPlay else {
+            // Reduce Motion: skip the typing entirely, per spec — the
+            // finished label appears immediately, independent of the splash.
+            // (An already-tapped launch is defensive; can't actually happen
+            // this early, but if it somehow did, the plain `playLabel`
+            // branch above would already be in control and none of this
+            // would be visible regardless.)
+            introStarted = true
+            introTypedCount = 4
+            introComplete = true
+            return
+        }
+
+        guard splashDismissed else { return }
+        introStarted = true
+
+        introTyping = true
+        for count in 1...4 {
+            try? await Task.sleep(for: .milliseconds(introMsPerChar))
+            // Bail immediately if the user tapped PLAY mid-reveal: `playLabel`
+            // switches to the plain instant label the moment `hasTappedPlay`
+            // flips, so there's nothing left here to finish revealing.
+            guard !Task.isCancelled, !hasTappedPlay else { return }
+            introTypedCount = count
+        }
+        introTyping = false
+        introComplete = true
     }
 
     /// Starts (or cleanly cancels) the forever-repeating attract throb. Using
     /// `withAnimation` to flip `attractPulse` true kicks off the repeating
     /// animation; flipping it back to false with a short plain animation
     /// cancels the repeat and settles the button back to its resting state
-    /// instead of leaving it stuck mid-pulse.
+    /// instead of leaving it stuck mid-pulse. Held off entirely until the
+    /// typewriter intro has finished (or was skipped) — see `introComplete`
+    /// — so the pulse/glow never starts mid-type and fights the reveal for
+    /// attention.
     private func updateAttractAnimation() {
-        if attractPlay {
-            withAnimation(.easeInOut(duration: 1.4).repeatForever(autoreverses: true)) {
-                attractPulse = true
-            }
-        } else {
+        guard attractPlay, reduceMotion || introComplete else {
             withAnimation(.easeInOut(duration: 0.2)) {
                 attractPulse = false
             }
+            return
+        }
+        withAnimation(.easeInOut(duration: 1.4).repeatForever(autoreverses: true)) {
+            attractPulse = true
         }
     }
 

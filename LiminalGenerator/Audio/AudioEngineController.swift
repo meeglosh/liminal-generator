@@ -11,36 +11,13 @@
 import AVFoundation
 import Combine
 
-/// Preallocated interleaved-stereo scratch buffer bridging `LiminalDSPCore`
-/// (which renders interleaved Float32, per its pinned entry point) to
-/// AVAudioEngine's non-interleaved node format. Allocated once; the
-/// render/deinterleave path performs no allocation.
-private final class InterleavedScratch: @unchecked Sendable {
-    private let buffer: UnsafeMutablePointer<Float>
-    private let capacityFrames: Int
-
-    init(capacityFrames: Int) {
-        self.capacityFrames = capacityFrames
-        buffer = .allocate(capacity: capacityFrames * 2)
-        buffer.initialize(repeating: 0, count: capacityFrames * 2)
-    }
-
-    deinit {
-        buffer.deallocate()
-    }
-
-    func renderAndDeinterleave(dsp: LiminalDSPCore, frameCount: Int, into abl: UnsafeMutableAudioBufferListPointer) {
-        let frames = min(frameCount, capacityFrames)
-        dsp.render(into: buffer, frames: frames)
-        guard abl.count >= 2, let leftRaw = abl[0].mData, let rightRaw = abl[1].mData else { return }
-        let left = leftRaw.assumingMemoryBound(to: Float.self)
-        let right = rightRaw.assumingMemoryBound(to: Float.self)
-        for i in 0..<frames {
-            left[i] = buffer[i * 2]
-            right[i] = buffer[i * 2 + 1]
-        }
-    }
-}
+// `RenderSource`/`InterleavedScratch` (bridging a render-callback-shaped
+// source to AVAudioEngine's non-interleaved node format) live in
+// `PowerClickGenerator.swift`, not here -- that file is included in the
+// standalone `tests/run-drum-break-tests.py` DSP harness, which explicitly
+// excludes this one (it pulls in Combine/`@MainActor`/`ObservableObject`
+// that the headless harness doesn't need), and both `LiminalDSPCore` and
+// `PowerClickGenerator` need to conform.
 
 enum RenderOfflineError: Error {
     case engineFailure
@@ -167,6 +144,24 @@ final class AudioEngineController: ObservableObject {
     private var sourceNode: AVAudioSourceNode!
     private var interruptionObserver: NSObjectProtocol?
 
+    /// Dry power-click generator -- see `PowerClickGenerator.swift` for the
+    /// synthesis/DRY-routing rationale. Its node lives on THIS SAME `engine`
+    /// (a second, parallel `AVAudioSourceNode` wired straight to
+    /// `engine.mainMixerNode`, see `setupEngineGraph`) rather than a second
+    /// permanently-running engine -- deliberately, so idle time never leaves
+    /// a second audio graph rendering silence forever (see `pauseInternal`
+    /// for how an OFF click still gets to finish before the shared engine
+    /// actually pauses).
+    private let clickGenerator = PowerClickGenerator(sampleRate: AudioEngineController.sampleRate)
+    private let clickScratch = InterleavedScratch(capacityFrames: AudioEngineController.maxFrameCapacity)
+    private var clickSourceNode: AVAudioSourceNode!
+    /// Bumped on every `play()`/`pauseInternal(playClick:)` call; a deferred
+    /// `engine.pause()` scheduled by `pauseInternal` captures the value it
+    /// was scheduled under and no-ops if the generation has since moved on
+    /// (engine resumed, or a newer pause superseded it) -- see
+    /// `pauseInternal`. Main-actor-only, no atomics needed.
+    private var pendingPauseGeneration: UInt64 = 0
+
     init() {
         let pattern = PatternGenerator.randomScene()
         let beat = PatternGenerator.randomDrumPattern()
@@ -211,14 +206,66 @@ final class AudioEngineController: ObservableObject {
     // MARK: Transport
 
     func play() {
+        // Invalidates any deferred `engine.pause()` a just-preceding
+        // `pauseInternal(playClick: true)` may have scheduled (rapid
+        // pause-then-play tapping) -- resuming playback must never let that
+        // stale deferred pause fire later and silently re-pause us.
+        pendingPauseGeneration &+= 1
         ensureEngineRunning()
         isPlaying = true
+        clickGenerator.trigger(.on)
     }
 
+    /// Public, UI-facing pause -- fires the OFF power-click (see
+    /// `pauseInternal`). `setupInterruptionHandling` below calls
+    /// `pauseInternal(playClick: false)` directly instead of this, so an
+    /// incoming phone call/interruption silently pauses playback without
+    /// also sounding a click the user didn't tap for.
     func pause() {
+        pauseInternal(playClick: true)
+    }
+
+    /// The click node shares `engine` with the music graph (see the
+    /// `clickGenerator` doc comment) rather than living on a second,
+    /// permanently-running engine -- so pausing for real (`engine.pause()`,
+    /// which halts ALL of `engine`'s render callbacks, including the click
+    /// node's) must wait until an OFF click has actually finished rendering,
+    /// or it gets cut off exactly like the coordinator warned about.
+    /// `pendingPauseGeneration` makes that deferral safe under rapid
+    /// play/pause tapping: each call bumps it, and the scheduled closure
+    /// only acts if its captured generation is still the latest -- so
+    /// superseded pauses (an intervening `play()`, or a second `pause()`
+    /// before the first's deferred call fires) are silently dropped instead
+    /// of stacking up stray `engine.pause()` calls or engine start/stop
+    /// churn. `DispatchQueue.main.asyncAfter` and `engine.pause()` both only
+    /// ever run on the main thread here -- never inside the render callback.
+    private func pauseInternal(playClick: Bool) {
         isPlaying = false
-        if engine.isRunning {
-            engine.pause()
+        guard playClick else {
+            // Interruption-driven: pause immediately, no click, and drop any
+            // OFF click's deferred pause that might still be pending.
+            pendingPauseGeneration &+= 1
+            if engine.isRunning { engine.pause() }
+            return
+        }
+
+        // Make sure `engine` is actually running long enough to render the
+        // click even if it happened to already be paused/stopped when this
+        // was called (e.g. called back-to-back without an intervening
+        // `play()`) -- otherwise the click node never gets a render
+        // callback at all.
+        ensureEngineRunning()
+        clickGenerator.trigger(.off)
+
+        pendingPauseGeneration &+= 1
+        let generation = pendingPauseGeneration
+        // Comfortably longer than `offClickDurationSeconds` (~22ms) to also
+        // absorb CoreAudio/IO buffering latency before the click's samples
+        // actually reach the render callback.
+        let delay = clickGenerator.offClickDurationSeconds + 0.06
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+            guard let self, self.pendingPauseGeneration == generation else { return }
+            if self.engine.isRunning { self.engine.pause() }
         }
     }
 
@@ -339,7 +386,7 @@ final class AudioEngineController: ObservableObject {
 
         let sourceNode = AVAudioSourceNode(format: format) { _, _, frameCount, audioBufferList in
             let abl = UnsafeMutableAudioBufferListPointer(audioBufferList)
-            scratch.renderAndDeinterleave(dsp: dsp, frameCount: Int(frameCount), into: abl)
+            scratch.renderAndDeinterleave(source: dsp, frameCount: Int(frameCount), into: abl)
             return noErr
         }
 
@@ -464,7 +511,7 @@ final class AudioEngineController: ObservableObject {
 
         let node = AVAudioSourceNode(format: format) { _, _, frameCount, audioBufferList in
             let abl = UnsafeMutableAudioBufferListPointer(audioBufferList)
-            scratch.renderAndDeinterleave(dsp: dsp, frameCount: Int(frameCount), into: abl)
+            scratch.renderAndDeinterleave(source: dsp, frameCount: Int(frameCount), into: abl)
             return noErr
         }
         sourceNode = node
@@ -476,6 +523,26 @@ final class AudioEngineController: ObservableObject {
 
         engine.connect(node, to: reverb, format: format)
         engine.connect(reverb, to: engine.mainMixerNode, format: format)
+
+        // Power-click node: a SECOND `AVAudioSourceNode` on this SAME
+        // `engine`, wired straight to `mainMixerNode` -- deliberately NOT
+        // through `reverb`, so it stays dry/unaffected by SPACE regardless
+        // of the live `space` value (see `PowerClickGenerator.swift`).
+        // Sharing this engine (rather than a second, always-running one)
+        // means it starts/stops exactly when the music graph does -- no
+        // audio graph renders while the app is idle/paused (see
+        // `pauseInternal` for how an OFF click still finishes before the
+        // shared engine actually pauses).
+        let clickGenerator = self.clickGenerator
+        let clickScratch = self.clickScratch
+        let clickNode = AVAudioSourceNode(format: format) { _, _, frameCount, audioBufferList in
+            let abl = UnsafeMutableAudioBufferListPointer(audioBufferList)
+            clickScratch.renderAndDeinterleave(source: clickGenerator, frameCount: Int(frameCount), into: abl)
+            return noErr
+        }
+        clickSourceNode = clickNode
+        engine.attach(clickNode)
+        engine.connect(clickNode, to: engine.mainMixerNode, format: format)
     }
 
     #if os(iOS)
@@ -489,7 +556,7 @@ final class AudioEngineController: ObservableObject {
                   let type = AVAudioSession.InterruptionType(rawValue: typeValue),
                   type == .began else { return }
             Task { @MainActor in
-                self?.pause()
+                self?.pauseInternal(playClick: false)
             }
         }
     }
@@ -502,6 +569,25 @@ final class AudioEngineController: ObservableObject {
     private nonisolated static func reverbWetDry(forSpace space: Float) -> Float {
         clamp(space, 0, 1) * 70
     }
+
+    #if DEBUG
+    /// Test-only introspection (see the headless lifecycle verification
+    /// harness under `tests/`/scratchpad) -- never compiled into a release
+    /// build, so it doesn't expand the pinned public contract. Lets the
+    /// harness confirm, against the REAL production code path rather than a
+    /// re-implementation, that `engine` genuinely stops while idle/paused
+    /// and that rapid play/pause tapping can't leave it stuck running or
+    /// leave a stray deferred-pause generation dangling.
+    var isMusicEngineRunningForTesting: Bool { engine.isRunning }
+    var pendingPauseGenerationForTesting: UInt64 { pendingPauseGeneration }
+    /// Exercises the exact same private path `setupInterruptionHandling`'s
+    /// notification observer calls -- lets the harness verify interruption-
+    /// driven auto-pause behaves differently from a user tap (no click, no
+    /// deferral) without needing to post a real `AVAudioSession` notification.
+    func simulateInterruptionPauseForTesting() {
+        pauseInternal(playClick: false)
+    }
+    #endif
 }
 
 /// Sendable value bundle capturing everything the offline render needs,

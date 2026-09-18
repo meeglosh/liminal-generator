@@ -39,6 +39,7 @@
 		98CE7BB2B92A39A954141F19 /* VHSFrameCompositor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32EB3387454CE5A73E01191B /* VHSFrameCompositor.swift */; };
 		9C623EAB55FC935471BF9F27 /* SplashView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D02F63B723542C64FBA5CAF /* SplashView.swift */; };
 		9DB4F8324E11134CDA7D9F0E /* loop_95_boombap.wav in Resources */ = {isa = PBXBuildFile; fileRef = 35B118C34DC35D3290834F18 /* loop_95_boombap.wav */; };
+		A1290BDBACF57EDF19361669 /* PowerClickGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DF623844F44B4A37DF8C5A0 /* PowerClickGenerator.swift */; };
 		A3BC79EC1ABF8F9860BDB35C /* loop_76_amber.wav in Resources */ = {isa = PBXBuildFile; fileRef = 61704CB6E366DD336A594101 /* loop_76_amber.wav */; };
 		AFE5ED7C1F347C640526E438 /* loop_95_dusty.wav in Resources */ = {isa = PBXBuildFile; fileRef = 919D956FD48BE77EE095FF9D /* loop_95_dusty.wav */; };
 		B0A262DE925A3BD1E67338F7 /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE6218B657A6195E2D2774BA /* Components.swift */; };
@@ -115,6 +116,7 @@
 		96E8A26E4188E45132E7DA10 /* TipJarSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TipJarSection.swift; sourceTree = "<group>"; };
 		98225262E497CE2E6C86B2A0 /* JunoChorus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JunoChorus.swift; sourceTree = "<group>"; };
 		98D10E3700D3289E6BA4A194 /* loop_95_vinyl.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = loop_95_vinyl.wav; sourceTree = "<group>"; };
+		9DF623844F44B4A37DF8C5A0 /* PowerClickGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PowerClickGenerator.swift; sourceTree = "<group>"; };
 		A1341C228BC284BF3B350F98 /* loop_76_midnight.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = loop_76_midnight.wav; sourceTree = "<group>"; };
 		A3C32FBA73E6CDD988256CF4 /* TipStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TipStore.swift; sourceTree = "<group>"; };
 		A604485A59B89E1D347C0D4B /* loop_70_drift.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = loop_70_drift.wav; sourceTree = "<group>"; };
@@ -181,6 +183,7 @@
 				146B2F1239909D0C484D7EA9 /* PadVoice.swift */,
 				029D03F40D7046E1C4C64EC7 /* ParameterBus.swift */,
 				432BF7B43408DCB96DE28154 /* PatternGenerator.swift */,
+				9DF623844F44B4A37DF8C5A0 /* PowerClickGenerator.swift */,
 				3382BACB39769B917100DB5B /* SceneSequencer.swift */,
 				3DB40B4A997464FA14237CFB /* SynthVoice.swift */,
 				03D609D0245CA89227517C22 /* TapeHiss.swift */,
@@ -463,6 +466,7 @@
 				45D9197452863E0EA95BBC4C /* PadVoice.swift in Sources */,
 				E3BD91E62D5DD663C1B0FA97 /* ParameterBus.swift in Sources */,
 				91239B908B58F03208350472 /* PatternGenerator.swift in Sources */,
+				A1290BDBACF57EDF19361669 /* PowerClickGenerator.swift in Sources */,
 				2D6EF04FF881CAC79628195C /* RenderScreen.swift in Sources */,
 				F0E342E7594E5FEBE7E54B7D /* SceneSequencer.swift in Sources */,
 				FDA12998A21D88173E5E5408 /* ShareSheet.swift in Sources */,
