@@ -20,19 +20,19 @@ over swipeable VHS-filtered images of empty spaces, and renders shareable 2-minu
 - Screens to match mockups:
   - Main: `img/stitch_liminal_space_generator/generator_player/screen.png` (+ code.html for reference)
   - Render: `img/stitch_liminal_space_generator/share_clip/screen.png` ("ENCODING ANALOG SIGNAL")
-  - Splash: `img/splash_screen/screen.png` (+ code.html)
 
 ## Screens & behavior
-1. **Splash** (~2s, in-app after launch screen): black static texture, green camcorder glyph, glitch-styled
-   "LIMINAL GENERATOR" wordmark, "ESTABLISHING ANALOG CONNECTION…" / "BUFFERING SIGNAL" readouts, then main.
+1. **Splash**: show the VHS-tape splash for two seconds, then fade into the idle main screen over 0.4 seconds.
 2. **Main** (single scrollable card stack):
    - Header: dithered glyph + "LIMINAL GENERATOR", settings gear (gear can be non-functional placeholder or
      minimal about sheet).
    - **VHS image card**: shows current library image (1:1 square, all 23 bundled images cropped square) with
      live VHS filter (see below). Swipe left/right pages through the library (wraps around, random start
-     index). PLAY ▶ / PAUSE toggle overlaid bottom-left. OSD overlay: random retro timestamp (e.g. "OCT 26 1998"
-     + time, random per image swipe, late-80s–90s dates), blinking red ● REC while playing, "SP" top-right.
-     OSD uses a VCR-style rendering (Space Mono, slight glow).
+     index) — only while the CRT is "on" (see below). PLAY ▶ / PAUSE toggle overlaid bottom-left. OSD overlay:
+     random retro timestamp (e.g. "OCT 26 1998" + time, random per image swipe, late-80s–90s dates), blinking
+     red ● REC while playing, "SP" top-right. OSD uses a VCR-style rendering (Space Mono, slight glow). The OSD
+     and swipe paging are only shown/enabled while the CRT is settled "on" — see "CRT power state" below for
+     the off/on-transition behavior and the PLAY button's attract pulse.
    - **SYNTH card** ("SYNTH" tape-spine header): dice button "GENERATE MELODY" → new random arpeggio.
      Readout row: `SEQ: A-C-E-G` (note names of the pattern) and `BPM: <effectiveBPM>` (the actual playback
      tempo — loop bpm or base melody bpm, times the SPEED multiplier; see "Musical style"). Below that, a
@@ -41,7 +41,8 @@ over swipeable VHS-filtered images of empty spaces, and renders shareable 2-minu
      and SPEED slider (label right: TEMPO, scale 0–10) — a tape-style playback-rate control. All three affect
      the entire mix (synth + drums together, including the drum loop's playback rate/pitch, like a tape deck's
      speed control).
-   - **DRUMS card**: "ENABLE LOFI BEATS" toggle; when on, reveals LEVEL slider (-INF…+6dB), dice button
+   - **DRUMS card**: "ENABLE LOFI BEATS" toggle; when on, reveals LEVEL slider (-INF…+6dB), a "BREAKS" toggle
+     below it (`AudioEngineController.breaksEnabled`, default true — see "Drum breaks" below), dice button
      "GENERATE BEAT", and a readout row (`LOOP: <displayName>` / `BPM: <loop bpm>`) below it.
    - **RENDER & SHARE** full-width red bar button at bottom.
 3. **Render screen** (modal, matches share_clip mockup): "ENCODING ANALOG SIGNAL▮" header, SRC: VTR_01 /
@@ -136,6 +137,11 @@ All DSP is plain-Swift, sample-based, shared verbatim between realtime and offli
   scanlines, luma noise, chroma aberration at edges, vignette, subtle vertical jitter; time-driven via
   `TimelineView`. Keep GPU-cheap. OSD text is a SwiftUI overlay (shared component with ClipRenderer's CI text
   generator so the look matches).
+- Since `layerEffect`'s `maxSampleOffset` lets the shader sample outside a page's own bounds (needed so
+  horizontal taps near an edge have real pixels to read), each paged image view's filtered output must be
+  clipped back to its own frame *after* the shader runs, and the shader itself must return fully transparent
+  for any sample position outside its own `[0, size)` bounds as a second line of defense — otherwise one
+  page's overhang paints onto whichever neighboring page is composited after it in the paging stack.
 
 ## Assets (`Resources/`)
 - 24 library images copied from `img/stitch_liminal_space_generator/*/screen.png` (exclude generator_player,
@@ -400,3 +406,71 @@ render agent. The VHS-intensity parameters are PINNED here so the live shader an
    - Vignette: unchanged.
    Live (Metal shader) and rendered (Core Image) versions must land within visual matching distance of
    each other using these shared numbers.
+
+## Simplification review (2026-09-14)
+The in-app splash and its duplicate icon asset are removed; launch goes directly to the idle player.
+This supersedes earlier splash requirements and Addendum 5's splash-icon instructions.
+The debug render harness now runs from the SwiftUI root task, once per process, using the same
+explicit environment flags. No C constructor or pre-main Swift callback is needed.
+UI screenshots are retained in XCTest results only, without session-specific filesystem copies.
+
+## Recipient video previews (2026-09-14, after build 9)
+Exports now start on the fully visible VHS image with baked-in timestamp/watermark, so a recipient-generated
+first-frame poster is not black. Audio still fades in; video/audio retain their fade-out. This supersedes
+prior requirements that the video fade up from black. MP4s use network-optimized layout and a shorter
+`Liminal Generator-XXXXXXXX.mp4` name. Sharing supplies an MPEG-4 type and optional activity thumbnail,
+without a subject or local-file link URLs in LPLinkMetadata. The latter describes the sender's share-sheet
+header, not a guaranteed received Messages preview. Confirm actual receiving-device behavior in TestFlight.
+
+## Splash restored (2026-09-14, after build 9)
+At the user’s request, the two-second splash and VHS tape icon are restored. This supersedes the simplification review’s splash removal. The SwiftUI debug harness entry point remains unchanged.
+
+## CRT power state + PLAY attract pulse (2026-09-17)
+Pinned addition to `AudioEngineController`:
+```swift
+@MainActor
+final class AudioEngineController: ObservableObject {
+    // ...existing properties unchanged, PLUS:
+    @Published var breaksEnabled: Bool      // default true — see "Drum breaks" below
+}
+```
+
+**PLAY attract pulse**: until the user taps PLAY for the first time in a session, the PLAY control pulses
+(subtle ~1.06x scale) and glows (swelling CRT-green shadow) on a ~1.4s autoreversing loop, to draw the eye to
+it. The moment it's tapped, the pulse stops for the rest of the session — including across image swipes, so
+this "has the user ever pressed play" flag lives on the image card itself, not on the per-image OSD overlay
+that gets rebuilt on every swipe. Under `accessibilityReduceMotion` the scale pulse is dropped; only the glow
+keeps breathing.
+
+**CRT off / switch-on state**: whenever nothing is playing, the VHS image card reads as a powered-off CRT —
+fully black but for a faint static radial sheen and a barely-there diagonal glass reflection, no VHS shader
+running, no OSD (timestamp/REC/SP hidden), swipe paging disabled. PLAY is the only thing present on a dead
+screen. Tapping PLAY runs a ~0.5s switch-on sequence: a bright horizontal line snaps open from center
+(~0.08s) → blooms vertically to fill the frame (~0.18s) → the picture settles through a brief decaying
+horizontal tracking wobble (~0.25s), with a matched horizontal overscan on the picture so the wobble never
+exposes the black backdrop at the frame edge → OSD fades in and swipe paging re-enables. Pausing reverses it
+over ~0.35s: picture collapses to the bright line, shrinks toward a center dot, then fades. Under
+`accessibilityReduceMotion` the whole line/bloom/wobble/collapse geometry is replaced by a plain ~0.3s
+crossfade. While the screen is off, the shader/`TimelineView` for the current AND both neighboring paged
+images are stopped (not merely hidden behind a black layer), so the 30fps live filter genuinely does no work
+while nothing is playing.
+
+## Drum breaks — BREAKS toggle (2026-09-17)
+A new user-facing `breaksEnabled` toggle (default true, "BREAKS" row in the DRUMS card, below LEVEL and above
+GENERATE BEAT) governs the drum-break behavior for BOTH live playback and export, superseding the export-only
+break arrangement from build 9. Full detail is in `docs/Drum-breaks.md` (kept as the implementation reference
+— SPEC.md summarizes, doesn't duplicate):
+
+- **Export** (`ClipRenderer`/offline render): unchanged math — two two-bar breaks near one-third/two-thirds of
+  the render — but the `DrumBreakArrangement` is now only constructed when `drumsEnabled && breaksEnabled`;
+  with BREAKS off the export is straight, uninterrupted drums+bass for the whole clip.
+- **Live playback**: a new `LiveDrumBreakSchedule` — a repeating 48-bar cycle with two 2-bar breaks at bars
+  [14, 16) and [30, 32) — driven by the same shared 16-tick-per-bar musical clock that drives the pad
+  progression and loop swaps, so it stays tempo-independent (in sync regardless of SPEED or loop bpm) rather
+  than drifting like a frame-based plan would. At the default 80 BPM loop tempo and 1.0x SPEED that's roughly
+  two breaks every 2.4 minutes.
+- In both paths, the break gain gates the drum AND bass buses together; melody, pads, chorus, reverb, tape
+  hiss, the loop's tempo/cursor, and the always-on breathing swell all keep running through a break.
+- Break **starts** are bar-quantized in both paths. Toggling BREAKS or DRUMS off while a break is already in
+  progress releases the gate immediately (on the order of the shared ~6ms smoothing ramp) rather than waiting
+  for the next bar boundary.

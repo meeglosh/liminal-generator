@@ -1,16 +1,9 @@
-//
-//  LiminalGeneratorApp.swift
-//  LiminalGenerator
-//
-//  App entry point: shows the in-app splash (~2s) then transitions to
-//  MainView, per SPEC.md "Screens & behavior".
-//
-
 import SwiftUI
 
 @main
 struct LiminalGeneratorApp: App {
     @State private var showSplash = true
+    @StateObject private var tipStore = TipStore()
 
     var body: some Scene {
         WindowGroup {
@@ -23,14 +16,22 @@ struct LiminalGeneratorApp: App {
                         .zIndex(1)
                 }
             }
+            .environmentObject(tipStore)
             .preferredColorScheme(.dark)
-            .onAppear {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-                    withAnimation(.easeOut(duration: 0.4)) {
-                        showSplash = false
-                    }
+            .task {
+                guard showSplash else { return }
+                do {
+                    try await Task.sleep(for: .seconds(2))
+                } catch {
+                    return
+                }
+                withAnimation(.easeOut(duration: 0.4)) {
+                    showSplash = false
                 }
             }
+            #if DEBUG
+            .task { await AutoRenderDebugHarness.runIfRequested() }
+            #endif
         }
     }
 }

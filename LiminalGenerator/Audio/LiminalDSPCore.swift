@@ -27,6 +27,7 @@ import Foundation
 /// without going through a snapshot publish/read.
 final class LiminalDSPCore: @unchecked Sendable {
     let sampleRate: Double
+    private let drumBreakArrangement: DrumBreakArrangement?
 
     // MARK: Control-thread-facing snapshot buses
 
@@ -41,6 +42,7 @@ final class LiminalDSPCore: @unchecked Sendable {
     private var shadowAge: Float
     private var shadowDrumsEnabled: Bool
     private var shadowDrumLevel: Float
+    private var shadowBreaksEnabled: Bool
     private var shadowSpeed: Float
     private var shadowColor: Float
     private var shadowWaveform: LiminalWaveform
@@ -83,6 +85,14 @@ final class LiminalDSPCore: @unchecked Sendable {
     private var smAge: SmoothedParam
     private var smDrumGain: SmoothedParam
     private var smBassGain: SmoothedParam
+    /// Live-playback break gain (0 during a live break window, 1 otherwise),
+    /// driven by `LiveDrumBreakSchedule` at bar boundaries in `doTick` and
+    /// consumed once per sample in `render`. Same 6ms-ish time constant as
+    /// `smDrumGain`/`smBassGain` -- click-free, comparable to the export
+    /// arrangement's 5ms ramp, and the ONLY ramp on this signal (never
+    /// stacked with anything else). Unused/irrelevant when
+    /// `drumBreakArrangement` is non-nil -- see `render`.
+    private var smBreakGain: SmoothedParam
     /// Smoothed SPEED (0...1, not the multiplier itself -- `speedMultiplier`
     /// is applied where the smoothed value is read) so slider drags ramp
     /// over ~20ms instead of stepping the tick clock/loop rate abruptly.
@@ -148,6 +158,14 @@ final class LiminalDSPCore: @unchecked Sendable {
     private static let ticksPerBar = 16
     private var activeTempoUsesLoop: Bool
     private var pendingDrumsEnabledForTempo: Bool
+    /// Render-thread-only shadow of `ParamSnapshot.breaksEnabled`, refreshed
+    /// once per `render()` callback (same pattern as
+    /// `pendingDrumsEnabledForTempo`) and consulted only at bar boundaries
+    /// in `doTick` when deciding whether `LiveDrumBreakSchedule` may gate
+    /// this bar. Irrelevant when `drumBreakArrangement` is set (offline
+    /// render) -- the export arrangement always takes precedence and the
+    /// live schedule never runs there, see `render`.
+    private var pendingBreaksEnabledForSchedule: Bool
 
     /// - Parameters:
     ///   - pattern/beat/loopBuffer: initial patterns + the already-decoded
@@ -155,8 +173,9 @@ final class LiminalDSPCore: @unchecked Sendable {
     ///     freshly constructed offline-render core -- passing the SAME
     ///     `LoopBuffer` instance guarantees bit-identical drum audio).
     ///   - bassPattern: initial bassline pattern (see `BasslinePattern`).
-    ///   - space/age/drumsEnabled/drumLevel/speed/color/waveform/bassEnabled/
-    ///     bassColor/bassLevel/nostalgia: initial parameter values.
+    ///   - space/age/drumsEnabled/drumLevel/breaksEnabled/speed/color/
+    ///     waveform/bassEnabled/bassColor/bassLevel/nostalgia: initial
+    ///     parameter values.
     init(pattern: ArpeggioPattern,
          beat: DrumPattern,
          loopBuffer: LoopBuffer,
@@ -165,6 +184,7 @@ final class LiminalDSPCore: @unchecked Sendable {
          age: Float,
          drumsEnabled: Bool,
          drumLevel: Float,
+         breaksEnabled: Bool,
          speed: Float,
          color: Float,
          waveform: LiminalWaveform,
@@ -172,13 +192,16 @@ final class LiminalDSPCore: @unchecked Sendable {
          bassColor: Float,
          bassLevel: Float,
          nostalgia: Float,
-         sampleRate: Double = 44_100) {
+         sampleRate: Double = 44_100,
+         drumBreakArrangement: DrumBreakArrangement? = nil) {
         self.sampleRate = sampleRate
+        self.drumBreakArrangement = drumBreakArrangement
 
         shadowSpace = space
         shadowAge = age
         shadowDrumsEnabled = drumsEnabled
         shadowDrumLevel = drumLevel
+        shadowBreaksEnabled = breaksEnabled
         shadowSpeed = speed
         shadowColor = color
         shadowWaveform = waveform
@@ -188,9 +211,9 @@ final class LiminalDSPCore: @unchecked Sendable {
         shadowNostalgia = nostalgia
 
         paramBox = SnapshotBox(ParamSnapshot(space: space, age: age, drumsEnabled: drumsEnabled, drumLevel: drumLevel,
-                                              speed: speed, color: color, waveform: waveform,
-                                              bassEnabled: bassEnabled, bassColor: bassColor, bassLevel: bassLevel,
-                                              nostalgia: nostalgia))
+                                              breaksEnabled: breaksEnabled, speed: speed, color: color,
+                                              waveform: waveform, bassEnabled: bassEnabled, bassColor: bassColor,
+                                              bassLevel: bassLevel, nostalgia: nostalgia))
         let arpValueBox = ValueBox(pattern)
         let drumValueBox = ValueBox(LoopSwapPayload(pattern: beat, buffer: loopBuffer))
         let bassValueBox = ValueBox(bassPattern)
@@ -220,6 +243,10 @@ final class LiminalDSPCore: @unchecked Sendable {
                                     timeConstant: 0.006, sampleRate: sampleRate)
         smBassGain = SmoothedParam(initial: bassEnabled ? levelToGainLinear(bassLevel) : 0,
                                     timeConstant: 0.006, sampleRate: sampleRate)
+        // Starts at unity (no break in progress) -- the schedule only ever
+        // drives it toward 0 at a bar boundary reached via `doTick`, so a
+        // freshly (re)started live session never opens already-ducked.
+        smBreakGain = SmoothedParam(initial: 1, timeConstant: 0.006, sampleRate: sampleRate)
         smSpeed = SmoothedParam(initial: speed, timeConstant: 0.02, sampleRate: sampleRate)
         smColor = SmoothedParam(initial: color, timeConstant: 0.02, sampleRate: sampleRate)
         smBassColor = SmoothedParam(initial: bassColor, timeConstant: 0.02, sampleRate: sampleRate)
@@ -227,6 +254,7 @@ final class LiminalDSPCore: @unchecked Sendable {
 
         activeTempoUsesLoop = drumsEnabled
         pendingDrumsEnabledForTempo = drumsEnabled
+        pendingBreaksEnabledForSchedule = breaksEnabled
 
         // Sane default breathing-bar length (one bar at baseMelodyBPM,
         // 1.0x speed) so the very first bar's breathing curve is already
@@ -256,6 +284,14 @@ final class LiminalDSPCore: @unchecked Sendable {
 
     func setDrumLevel(_ v: Float) {
         shadowDrumLevel = clamp(v, 0, 1)
+        publishParams()
+    }
+
+    /// Whether the deterministic break schedule (live: `LiveDrumBreakSchedule`,
+    /// export: `DrumBreakArrangement`) is allowed to gate the drum+bass buses.
+    /// Default `true`. See `render`/`doTick` for how the two paths apply it.
+    func setBreaksEnabled(_ v: Bool) {
+        shadowBreaksEnabled = v
         publishParams()
     }
 
@@ -350,6 +386,19 @@ final class LiminalDSPCore: @unchecked Sendable {
         smBassColor.setTarget(snapshot.bassColor)
         smNostalgia.setTarget(snapshot.nostalgia)
         pendingDrumsEnabledForTempo = snapshot.drumsEnabled
+        pendingBreaksEnabledForSchedule = snapshot.breaksEnabled
+        // Break *starts* stay bar-quantized (see `doTick`'s bar-boundary
+        // block) -- but switching BREAKS or DRUMS off mid-break must feel
+        // instant, not wait out the rest of a bar (up to ~3s at 80 BPM) of
+        // continued silence on a control the user just tapped to stop
+        // exactly that. Forcing the target back to unity here, checked
+        // every callback, gives that an immediate (one `smBreakGain` ramp,
+        // ~6ms) release. This never fights `doTick`'s own target: `doTick`
+        // only ever asks for `0` when BOTH breaksEnabled and drumsEnabled
+        // are true, which is precisely when this branch does nothing.
+        if !snapshot.breaksEnabled || !snapshot.drumsEnabled {
+            smBreakGain.setTarget(1)
+        }
 
         let arpRef = arpBox.read()
         if arpRef !== lastSeenArpRef {
@@ -405,11 +454,27 @@ final class LiminalDSPCore: @unchecked Sendable {
             let (melL, melR) = voiceBank.nextSample()
             let (padL, padR) = padBank.nextSample()
             let loopRaw: Float = activeTempoUsesLoop ? loopPlayer.nextSample(rate: speedMult) : 0
-            let drumMono = loopLowpass.process(loopRaw, coeff: loopLowpassCoeff) * drumGain
+            // Keep the loop cursor, shared tempo, synth and breathing clock
+            // running through a break; gate only the drum AND bass audio
+            // (melody/pads are deliberately left alone -- see product spec).
+            // The export arrangement (frame-planned, offline-only) always
+            // takes precedence when present; the live, tick-clock-driven
+            // `LiveDrumBreakSchedule` (via `smBreakGain`, updated at bar
+            // boundaries in `doTick`) never runs on that same instance, so
+            // the two never double-apply.
+            let breakGain: Float
+            if let drumBreakArrangement {
+                breakGain = drumBreakArrangement.gain(at: elapsedSamples - 1)
+            } else {
+                breakGain = smBreakGain.next()
+            }
+            let drumMono = loopLowpass.process(loopRaw, coeff: loopLowpassCoeff) * drumGain * breakGain
             // Bass ticks on the SAME shared clock regardless of `bassEnabled`
             // (see `BassSequencer`/`doTick`) -- only its gain is gated here,
-            // so re-enabling it never needs a resync.
-            let bassMono = bassVoice.nextSample(sampleRate: sampleRate) * bassGain
+            // so re-enabling it never needs a resync. Also gated by
+            // `breakGain` so bass always drops out together with drums
+            // during a break, leaving melody/pads untouched.
+            let bassMono = bassVoice.nextSample(sampleRate: sampleRate) * bassGain * breakGain
 
             // Breathing (SPEC.md Addendum 3): a smooth, tempo-synced gain
             // swell on pads+bass ONLY -- the melody floats above, un-ducked.
@@ -483,6 +548,20 @@ final class LiminalDSPCore: @unchecked Sendable {
             // scene's tick position.
             if sceneSeq.applyPendingSwapAtBarBoundary() {
                 sceneStartTick = globalTickIndex
+            }
+
+            // Live break schedule (SPEC.md "BREAKS" toggle): only ever
+            // consulted here at a bar boundary -- the schedule itself works
+            // entirely in bar units (see `LiveDrumBreakSchedule`), so this
+            // is the single, tempo-independent point where its target is
+            // recomputed. Never runs when an export arrangement is present
+            // (see `render`) or when breaks/drums are off, in which case the
+            // target simply stays at unity.
+            if drumBreakArrangement == nil {
+                let barIndex = globalTickIndex / Self.ticksPerBar
+                let breakActive = pendingBreaksEnabledForSchedule && activeTempoUsesLoop
+                    && LiveDrumBreakSchedule.isBreakBar(barIndex)
+                smBreakGain.setTarget(breakActive ? 0 : 1)
             }
 
             let scene = sceneSeq.activeScene
@@ -573,7 +652,8 @@ final class LiminalDSPCore: @unchecked Sendable {
     private func publishParams() {
         paramBox.publish(ParamSnapshot(space: shadowSpace, age: shadowAge,
                                         drumsEnabled: shadowDrumsEnabled, drumLevel: shadowDrumLevel,
-                                        speed: shadowSpeed, color: shadowColor, waveform: shadowWaveform,
+                                        breaksEnabled: shadowBreaksEnabled, speed: shadowSpeed,
+                                        color: shadowColor, waveform: shadowWaveform,
                                         bassEnabled: shadowBassEnabled, bassColor: shadowBassColor,
                                         bassLevel: shadowBassLevel, nostalgia: shadowNostalgia))
     }

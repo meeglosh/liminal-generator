@@ -60,9 +60,7 @@ final class VideoShareItem: NSObject, UIActivityItemSource {
     let url: URL
     let title: String
     let thumbnail: UIImage?
-    /// Pre-encoded JPEG bytes of `thumbnail`, computed once up front (see
-    /// root-cause note below) rather than left for `NSItemProvider` to
-    /// compute lazily on demand.
+    /// Encode the preview once, before the share sheet requests metadata.
     private let thumbnailJPEGData: Data?
 
     init(url: URL, title: String = "Liminal Generator", thumbnail: UIImage?) {
@@ -88,8 +86,20 @@ final class VideoShareItem: NSObject, UIActivityItemSource {
     }
 
     func activityViewController(_ activityViewController: UIActivityViewController,
-                                 subjectForActivityType activityType: UIActivity.ActivityType?) -> String {
-        title
+                                dataTypeIdentifierForActivityType activityType: UIActivity.ActivityType?) -> String {
+        UTType.mpeg4Movie.identifier
+    }
+
+    func activityViewController(_ activityViewController: UIActivityViewController,
+                                thumbnailImageForActivityType activityType: UIActivity.ActivityType?,
+                                suggestedSize size: CGSize) -> UIImage? {
+        guard let thumbnail else { return nil }
+        guard size.width > 0, size.height > 0 else { return thumbnail }
+        let scale = min(size.width / thumbnail.size.width, size.height / thumbnail.size.height)
+        let target = CGSize(width: thumbnail.size.width * scale, height: thumbnail.size.height * scale)
+        return UIGraphicsImageRenderer(size: target).image { _ in
+            thumbnail.draw(in: CGRect(origin: .zero, size: target))
+        }
     }
 
     func activityViewControllerLinkMetadata(_ activityViewController: UIActivityViewController) -> LPLinkMetadata? {
@@ -98,31 +108,9 @@ final class VideoShareItem: NSObject, UIActivityItemSource {
         #endif
         let metadata = LPLinkMetadata()
         metadata.title = title
-        metadata.originalURL = url
-        metadata.url = url
-        // Debugging note: the device log shows this method IS called and
-        // returns a non-nil metadata object (confirmed via temporary
-        // `Logger` calls -- see git history / session notes), and Console
-        // also logs `[com.apple.LinkPresentation:Serialization] Low
-        // fidelity encoder: dropping image, can't encode without
-        // computation` right after -- that line turned out to be benign
-        // (it fires for both the lazy and eager provider below, and the
-        // preview still rendered correctly in both cases on the
-        // simulator); it's LinkPresentation's own quick first-pass encode,
-        // superseded by a real async load. What IS a real, if
-        // simulator-unconfirmed, hardening: `NSItemProvider(object:
-        // UIImage)` registers a *lazy* NSItemProviderWriting
-        // representation (a block that encodes to PNG/HEIC on demand)
-        // rather than data that's already fully materialized. Handing over
-        // pre-encoded JPEG `Data` via `NSItemProvider(item:typeIdentifier:)`
-        // removes that whole class of "encoder declines to run the
-        // computation" risk, alongside setting `iconProvider` in addition
-        // to `imageProvider` (some iOS versions only consult the icon
-        // slot) -- both are the concrete iOS gotchas this was built
-        // against; the simulator could not reproduce the original
-        // black-preview report from a physical device either before or
-        // after this change, so treat this as defense-in-depth rather
-        // than a confirmed root-cause fix.
+        // This is the sender's share-sheet preview, not a remote web link.
+        // Do not advertise the local file as a link or add a subject/caption.
+        // Recipients may ignore this metadata and generate their own poster.
         if let thumbnailJPEGData {
             metadata.imageProvider = NSItemProvider(item: thumbnailJPEGData as NSData, typeIdentifier: UTType.jpeg.identifier)
             metadata.iconProvider = NSItemProvider(item: thumbnailJPEGData as NSData, typeIdentifier: UTType.jpeg.identifier)
@@ -134,9 +122,8 @@ final class VideoShareItem: NSObject, UIActivityItemSource {
 // MARK: - ShareThumbnailGenerator
 
 /// Extracts a non-black preview frame from a rendered clip for the share
-/// sheet's `LPLinkMetadata.imageProvider`, since the clip fades up from
-/// black and a frame captured at time zero would render as a black
-/// thumbnail. Pulls the frame at HALF the clip's duration.
+/// sheet's `LPLinkMetadata.imageProvider`, using a stable frame at HALF the clip's duration.
+/// The actual video also starts on a visible image for recipient-generated previews.
 enum ShareThumbnailGenerator {
     static func generate(for url: URL) async -> UIImage? {
         let asset = AVURLAsset(url: url)

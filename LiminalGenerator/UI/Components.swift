@@ -13,8 +13,25 @@ import UIKit
 
 // MARK: - Deck button (tape-transport style)
 
-/// Thick-bottom-border button that "depresses" on press: the border
-/// disappears and the label shifts down by 1px, per DESIGN.md.
+/// Shared native adaptation of transitions.dev's quick response and soft
+/// ease-out: tactile compression on touch, with no delay to the action.
+private struct CTAPressFeedback: ViewModifier {
+    let isPressed: Bool
+    let tint: Color
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func body(content: Content) -> some View {
+        content
+            .shadow(color: tint.opacity(isPressed ? 0.25 : 0), radius: 6)
+            .scaleEffect(isPressed && !reduceMotion ? 0.99 : 1)
+            .offset(y: isPressed && !reduceMotion ? 2 : 0)
+            .animation(reduceMotion ? nil : (isPressed
+                ? .easeOut(duration: 0.10)
+                : .timingCurve(0.22, 1, 0.36, 1, duration: 0.25)), value: isPressed)
+    }
+}
+
+/// Thick-bottom-border button that depresses and illuminates on press.
 struct DeckButtonStyle: ButtonStyle {
     var tint: Color = .liminalCRTGreenDim
     var background: Color = .liminalSurfaceContainerHighest
@@ -28,15 +45,14 @@ struct DeckButtonStyle: ButtonStyle {
             .foregroundColor(tint)
             .padding(.vertical, LiminalMetrics.stackMedium)
             .frame(maxWidth: .infinity)
-            .background(background)
+            .background(background.overlay(tint.opacity(configuration.isPressed ? 0.07 : 0)))
             .overlay(Rectangle().stroke(borderColor, lineWidth: 1))
             .overlay(alignment: .bottom) {
                 Rectangle()
                     .fill(bottomBorderColor)
                     .frame(height: configuration.isPressed ? 0 : LiminalMetrics.deckButtonBorderWidth)
             }
-            .offset(y: configuration.isPressed ? 1 : 0)
-            .animation(.easeOut(duration: 0.08), value: configuration.isPressed)
+            .modifier(CTAPressFeedback(isPressed: configuration.isPressed, tint: tint))
     }
 }
 
@@ -51,7 +67,8 @@ struct DiceDeckButton: View {
             action()
         } label: {
             HStack(spacing: 8) {
-                Text("\u{2684}")
+                Image(systemName: "dice")
+                    .accessibilityHidden(true)
                 Text(title.uppercased())
             }
         }
@@ -68,15 +85,14 @@ struct RenderBarButtonStyle: ButtonStyle {
             .foregroundColor(.liminalOnErrorContainer)
             .padding(.vertical, LiminalMetrics.stackMedium)
             .frame(maxWidth: .infinity)
-            .background(Color.liminalErrorContainer)
+            .background(Color.liminalErrorContainer.overlay(Color.liminalError.opacity(configuration.isPressed ? 0.12 : 0)))
             .overlay(Rectangle().stroke(Color.liminalError, lineWidth: 1))
             .overlay(alignment: .bottom) {
                 Rectangle()
                     .fill(Color.black.opacity(0.35))
                     .frame(height: configuration.isPressed ? 0 : LiminalMetrics.deckButtonBorderWidth)
             }
-            .offset(y: configuration.isPressed ? 1 : 0)
-            .animation(.easeOut(duration: 0.08), value: configuration.isPressed)
+            .modifier(CTAPressFeedback(isPressed: configuration.isPressed, tint: .liminalError))
     }
 }
 
@@ -87,6 +103,8 @@ struct LiminalSlider: View {
     @Binding var value: Float // 0...1
     var trackHeight: CGFloat = 4
     var thumbSize: CGSize = CGSize(width: 12, height: 22)
+    @State private var isDragging = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         GeometryReader { geo in
@@ -102,9 +120,13 @@ struct LiminalSlider: View {
                     .fill(Color.liminalCRTGreenDim)
                     .frame(width: max(0, CGFloat(clamped) * w), height: trackHeight)
                 Rectangle()
-                    .fill(Color.liminalCRTGreenDim)
-                    .overlay(Rectangle().stroke(Color.liminalSurfaceContainerLowest, lineWidth: 1))
                     .frame(width: thumbSize.width, height: thumbSize.height)
+                    .animation(reduceMotion ? nil : .easeOut(duration: 0.15)) { thumb in
+                        thumb
+                            .foregroundStyle(isDragging ? Color.liminalPrimary : Color.liminalCRTGreenDim)
+                            .shadow(color: Color.liminalCRTGreenDim.opacity(isDragging ? 0.55 : 0), radius: 5)
+                    }
+                    .overlay(Rectangle().stroke(Color.liminalSurfaceContainerLowest, lineWidth: 1))
                     .offset(x: thumbX)
             }
             .frame(height: max(trackHeight, thumbSize.height), alignment: .center)
@@ -124,9 +146,11 @@ struct LiminalSlider: View {
             // which is the correct/only way to hand it back to the
             // ancestor ScrollView mid-gesture.
             .overlay(
-                DirectionalDragOverlay { fraction in
+                DirectionalDragOverlay(onHorizontalDrag: { fraction in
                     value = Float(fraction)
-                }
+                }, onEditingChanged: { editing in
+                    isDragging = editing
+                })
             )
             // Exposes the current value for both VoiceOver and UI-test
             // verification (e.g. the vertical-drag-does-not-move-the-slider
@@ -134,6 +158,8 @@ struct LiminalSlider: View {
             // element's accessibility kind/traits, so `app.otherElements[...]`
             // lookups in existing tests keep matching exactly as before.
             .accessibilityValue("\(Int((clamped * 100).rounded()))")
+            // Fader geometry must never inherit a surrounding panel animation.
+            .transaction { $0.animation = nil }
         }
         .frame(height: thumbSize.height)
     }
@@ -147,6 +173,7 @@ struct LiminalSlider: View {
 /// ancestor gesture (the page's ScrollView) would otherwise handle it.
 private struct DirectionalDragOverlay: UIViewRepresentable {
     var onHorizontalDrag: (CGFloat) -> Void
+    var onEditingChanged: (Bool) -> Void
 
     func makeUIView(context: Context) -> UIView {
         let view = UIView()
@@ -160,20 +187,33 @@ private struct DirectionalDragOverlay: UIViewRepresentable {
         return view
     }
 
-    func updateUIView(_ uiView: UIView, context: Context) {}
+    func updateUIView(_ uiView: UIView, context: Context) {
+        context.coordinator.onHorizontalDrag = onHorizontalDrag
+        context.coordinator.onEditingChanged = onEditingChanged
+    }
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(onHorizontalDrag: onHorizontalDrag)
+        Coordinator(onHorizontalDrag: onHorizontalDrag, onEditingChanged: onEditingChanged)
     }
 
     final class Coordinator: NSObject {
-        let onHorizontalDrag: (CGFloat) -> Void
+        var onHorizontalDrag: (CGFloat) -> Void
+        var onEditingChanged: (Bool) -> Void
 
-        init(onHorizontalDrag: @escaping (CGFloat) -> Void) {
+        init(onHorizontalDrag: @escaping (CGFloat) -> Void, onEditingChanged: @escaping (Bool) -> Void) {
             self.onHorizontalDrag = onHorizontalDrag
+            self.onEditingChanged = onEditingChanged
         }
 
         @objc func handlePan(_ recognizer: UIPanGestureRecognizer) {
+            switch recognizer.state {
+            case .ended, .cancelled, .failed:
+                onEditingChanged(false)
+                return
+            case .began:
+                onEditingChanged(true)
+            default: break
+            }
             guard let view = recognizer.view, view.bounds.width > 0 else { return }
             switch recognizer.state {
             case .began, .changed:
@@ -282,13 +322,14 @@ struct LiminalSliderRow: View {
 
 struct LiminalToggle: View {
     @Binding var isOn: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Button {
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
-            withAnimation(.easeOut(duration: 0.12)) { isOn.toggle() }
+            isOn.toggle()
         } label: {
-            ZStack(alignment: isOn ? .trailing : .leading) {
+            ZStack(alignment: .leading) {
                 Rectangle()
                     .fill(Color.liminalSurfaceContainerHighest)
                     .overlay(
@@ -297,12 +338,17 @@ struct LiminalToggle: View {
                 Rectangle()
                     .fill(isOn ? Color.liminalCRTGreenDim : Color.liminalOnSurfaceVariant)
                     .frame(width: 18, height: 18)
+                    .shadow(color: Color.liminalCRTGreenDim.opacity(isOn ? 0.35 : 0), radius: 3)
+                    .animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: isOn)
                     .padding(3)
+                    .offset(x: isOn ? 20 : 0)
+                    .animation(reduceMotion ? nil : .spring(duration: 0.25, bounce: 0.12), value: isOn)
             }
             .frame(width: 44, height: 24)
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(.isButton)
+        .accessibilityValue(isOn ? "On" : "Off")
     }
 }
 
@@ -344,6 +390,8 @@ struct LiminalChip: View {
     /// tappable button for single-select rows like the waveform picker.
     var isSelected: Bool = false
 
+    var fillsWidth: Bool = false
+
     var body: some View {
         Text(text.uppercased())
             .font(.spaceMono(size: 10))
@@ -353,6 +401,7 @@ struct LiminalChip: View {
             .foregroundColor(isSelected ? .liminalOnPrimary : .liminalOnSurfaceVariant)
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
+            .frame(maxWidth: fillsWidth ? .infinity : nil)
             .background(isSelected ? Color.liminalCRTGreenDim : Color.clear)
             .overlay(Rectangle().stroke(isSelected ? Color.liminalCRTGreenDim : Color.liminalOutlineVariant, lineWidth: 1))
     }
@@ -371,8 +420,7 @@ struct LiminalSelectableChip: View {
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
             action()
         } label: {
-            LiminalChip(text: text, isSelected: isSelected)
-                .frame(maxWidth: .infinity)
+            LiminalChip(text: text, isSelected: isSelected, fillsWidth: true)
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
@@ -399,5 +447,28 @@ struct ScanlineOverlay: View {
         .opacity(opacity)
         .allowsHitTesting(false)
         .ignoresSafeArea()
+    }
+}
+
+// MARK: - Clipped accordion body
+
+/// Native adaptation of transitions.dev's accordion: reveal a top-anchored
+/// body by changing its clipped height, never translating it across the header.
+struct LiminalAccordionBody<Content: View>: View {
+    let isExpanded: Bool
+    @ViewBuilder let content: () -> Content
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        content()
+            .padding(.top, LiminalMetrics.stackMedium)
+            .frame(maxWidth: .infinity)
+            .fixedSize(horizontal: false, vertical: true)
+            .opacity(isExpanded ? 1 : 0)
+            .frame(height: isExpanded ? nil : 0, alignment: .top)
+            .clipped()
+            .allowsHitTesting(isExpanded)
+            .accessibilityHidden(!isExpanded)
+            .animation(reduceMotion ? nil : .timingCurve(0.22, 1, 0.36, 1, duration: 0.25), value: isExpanded)
     }
 }

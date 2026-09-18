@@ -23,6 +23,17 @@ half4 vhsEffect(float2 position, SwiftUI::Layer layer, float2 size, float time, 
         return layer.sample(position);
     }
 
+    // Belt-and-braces: `layerEffect`'s `maxSampleOffset` (set by the SwiftUI
+    // call site) lets SwiftUI invoke this function for destination positions
+    // outside the view's own [0, size) bounds, so it has real pixels to
+    // sample from when a horizontal tap below lands near an edge. The
+    // SwiftUI side clips that overhang away, but return fully transparent
+    // here too so this shader never *produces* visible content outside its
+    // own bounds even if called directly without that clip.
+    if (position.x < 0.0 || position.x >= size.x || position.y < 0.0 || position.y >= size.y) {
+        return half4(0.0h);
+    }
+
     float2 uv = position / size;
 
     // --- Tracking glitch: a band sweeps top->bottom over ~0.2-0.4s, once

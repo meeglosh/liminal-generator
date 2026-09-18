@@ -82,6 +82,18 @@ final class AudioEngineController: ObservableObject {
         didSet { dsp.setDrumLevel(drumLevel) }
     }
 
+    /// Deterministic drum-break toggle ("BREAKS" row in the DRUMS card).
+    /// Default `true`, matching the previously-always-on export behavior.
+    /// Gates BOTH the live schedule (`LiveDrumBreakSchedule`, tempo-
+    /// independent, driven by the DSP's musical clock) and the export
+    /// arrangement (`DrumBreakArrangement`, still frame-based) -- see
+    /// `performOfflineRender` and `LiminalDSPCore.render`/`doTick`. When a
+    /// break fires (live or render) both drums AND bass drop out together,
+    /// leaving melody/pads untouched.
+    @Published var breaksEnabled: Bool = true {
+        didSet { dsp.setBreaksEnabled(breaksEnabled) }
+    }
+
     /// Tape-style playback-rate control: 0...1, default 0.5 == exactly
     /// 1.0x (see `speedMultiplier` in DSPMath.swift for the 0.70x...1.30x
     /// curve). Scales both the shared tick clock (arp + loop timing) and
@@ -167,6 +179,7 @@ final class AudioEngineController: ObservableObject {
                               bassPattern: bassPattern,
                               space: 0.55, age: 0.4,
                               drumsEnabled: false, drumLevel: 0.65,
+                              breaksEnabled: true,
                               speed: 0.5, color: 0.5,
                               waveform: .sine,
                               bassEnabled: false, bassColor: 0.5, bassLevel: 0.65,
@@ -262,6 +275,7 @@ final class AudioEngineController: ObservableObject {
                                       bassPattern: currentBassPattern,
                                       space: space, age: age,
                                       drumsEnabled: drumsEnabled, drumLevel: drumLevel,
+                                      breaksEnabled: breaksEnabled,
                                       speed: speed, color: color,
                                       waveform: waveform,
                                       bassEnabled: bassEnabled, bassColor: bassColor, bassLevel: bassLevel,
@@ -287,16 +301,33 @@ final class AudioEngineController: ObservableObject {
         let sampleRate = Self.sampleRate
         let format = AVAudioFormat(standardFormatWithSampleRate: sampleRate, channels: 2)!
 
+        // Deterministic per the product ask: the render either includes the
+        // same break schedule the user would hear live, or (BREAKS off)
+        // none at all -- no separate randomization for the export.
+        let drumBreaks = (seed.drumsEnabled && seed.breaksEnabled) ? DrumBreakArrangement(
+            duration: duration, fadeIn: fadeIn, fadeOut: fadeOut,
+            bpm: seed.loopBuffer.bpm, speed: seed.speed, sampleRate: sampleRate) : nil
+        #if DEBUG
+        if let drumBreaks {
+            let times = drumBreaks.windows.map {
+                String(format: "%.2f–%.2fs", Double($0.lowerBound) / sampleRate, Double($0.upperBound) / sampleRate)
+            }
+            print("[DRUM_BREAKS] " + times.joined(separator: ", "))
+        }
+        #endif
+
         let dsp = LiminalDSPCore(pattern: seed.pattern, beat: seed.beat,
                                   loopBuffer: seed.loopBuffer,
                                   bassPattern: seed.bassPattern,
                                   space: seed.space, age: seed.age,
                                   drumsEnabled: seed.drumsEnabled, drumLevel: seed.drumLevel,
+                                  breaksEnabled: seed.breaksEnabled,
                                   speed: seed.speed, color: seed.color,
                                   waveform: seed.waveform,
                                   bassEnabled: seed.bassEnabled, bassColor: seed.bassColor, bassLevel: seed.bassLevel,
                                   nostalgia: seed.nostalgia,
-                                  sampleRate: sampleRate)
+                                  sampleRate: sampleRate,
+                                  drumBreakArrangement: drumBreaks)
 
         let chunkFrames = 4_096
         let scratch = InterleavedScratch(capacityFrames: chunkFrames)
@@ -485,6 +516,7 @@ private struct OfflineRenderSeed: Sendable {
     let age: Float
     let drumsEnabled: Bool
     let drumLevel: Float
+    let breaksEnabled: Bool
     let speed: Float
     let color: Float
     let waveform: LiminalWaveform

@@ -2,8 +2,8 @@
 //  AboutSheet.swift
 //  LiminalGenerator
 //
-//  Minimal "about" sheet opened from the header gear icon: font + image
-//  credits, in keeping with the terminal/readout aesthetic.
+//  About sheet with optional native tips and font/image/audio credits,
+//  in keeping with the terminal/readout aesthetic.
 //
 
 import SwiftUI
@@ -28,6 +28,15 @@ struct AboutSheet: View {
                                 .foregroundColor(.liminalOnSurfaceVariant)
                         }
 
+                        TipJarSection()
+
+                        VStack(alignment: .leading, spacing: 16) {
+                            Link("PRIVACY POLICY", destination: URL(string: "https://github.com/meeglosh/liminal-generator/blob/codex/app-store-pages/PRIVACY.md")!)
+                            Link("HELP & SUPPORT", destination: URL(string: "https://github.com/meeglosh/liminal-generator/tree/codex/app-store-pages")!)
+                        }
+                        .font(.spaceMono(size: 12, weight: .bold))
+                        .foregroundColor(.liminalCRTGreenDim)
+
                         creditSection(
                             title: "TYPEFACE",
                             lines: [
@@ -48,7 +57,7 @@ struct AboutSheet: View {
                         creditSection(
                             title: "AUDIO",
                             lines: [
-                                "Procedural synth arpeggios, generated",
+                                "Ambient chords and melodies, generated",
                                 "entirely on-device, with optional lo-fi",
                                 "drum loops layered in.",
                             ]
@@ -97,5 +106,5 @@ struct AboutSheet: View {
 }
 
 #Preview {
-    AboutSheet()
+    AboutSheet().environmentObject(TipStore())
 }

@@ -1,0 +1,64 @@
+{
+  "identifier": "E2A0FA10-7850-4C42-B758-EC682A1E45A8",
+  "nonRenewingSubscriptions": [],
+  "products": [
+    {
+      "displayPrice": "1.99",
+      "familyShareable": false,
+      "internalID": "1001",
+      "localizations": [
+        {
+          "description": "Optional tip. No extra features or content.",
+          "displayName": "Small tip",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "com.gapco.LiminalGenerator.tip.small",
+      "referenceName": "Small tip",
+      "type": "Consumable"
+    },
+    {
+      "displayPrice": "4.99",
+      "familyShareable": false,
+      "internalID": "1002",
+      "localizations": [
+        {
+          "description": "Optional tip. No extra features or content.",
+          "displayName": "Buy me a coffee",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "com.gapco.LiminalGenerator.tip.coffee",
+      "referenceName": "Buy me a coffee",
+      "type": "Consumable"
+    },
+    {
+      "displayPrice": "9.99",
+      "familyShareable": false,
+      "internalID": "1003",
+      "localizations": [
+        {
+          "description": "Optional tip. No extra features or content.",
+          "displayName": "Keep the tapes rolling",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "com.gapco.LiminalGenerator.tip.tapes",
+      "referenceName": "Keep the tapes rolling",
+      "type": "Consumable"
+    }
+  ],
+  "settings": {
+    "_applicationInternalID": "6804471660",
+    "_developerTeamID": "XM2SC5YZ8C",
+    "_failTransactionsEnabled": false,
+    "_locale": "en_US",
+    "_storefront": "USA",
+    "_storeKitErrors": []
+  },
+  "subscriptionGroups": [],
+  "version": {
+    "major": 3,
+    "minor": 0
+  }
+}

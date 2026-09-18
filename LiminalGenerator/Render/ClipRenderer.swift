@@ -150,11 +150,10 @@ enum ClipRenderer {
         let height = config.height
         let fps = config.fps
         let totalFrames = max(1, Int((config.duration * Double(fps)).rounded()))
-        let fadeInFrames = max(0, Int((config.fadeIn * Double(fps)).rounded()))
         let fadeOutFrames = max(0, Int((config.fadeOut * Double(fps)).rounded()))
 
         let outputURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent("LiminalClip-\(UUID().uuidString)")
+            .appendingPathComponent("Liminal Generator-\(UUID().uuidString.prefix(8))")
             .appendingPathExtension("mp4")
 
         let writer: AVAssetWriter
@@ -163,6 +162,10 @@ enum ClipRenderer {
         } catch {
             throw ClipRenderError.writerInitFailed(error.localizedDescription)
         }
+
+        // Put the MP4 index before media data so recipients can inspect/play
+        // the attachment without first reading the entire file.
+        writer.shouldOptimizeForNetworkUse = true
 
         let compressionProps: [String: Any] = [
             AVVideoAverageBitRateKey: 6_000_000,
@@ -244,7 +247,7 @@ enum ClipRenderer {
                 group.addTask {
                     try await pumpVideo(adaptor: adaptor, input: videoInput, compositor: compositor,
                                          totalFrames: totalFrames, fps: fps,
-                                         fadeInFrames: fadeInFrames, fadeOutFrames: fadeOutFrames,
+                                         fadeOutFrames: fadeOutFrames,
                                          progress: progress)
                 }
                 group.addTask {
@@ -279,7 +282,6 @@ enum ClipRenderer {
                                                 compositor: VHSFrameCompositor,
                                                 totalFrames: Int,
                                                 fps: Int32,
-                                                fadeInFrames: Int,
                                                 fadeOutFrames: Int,
                                                 progress: @escaping @Sendable (RenderProgress) -> Void) async throws {
         var frameIndex = 0
@@ -303,7 +305,7 @@ enum ClipRenderer {
             }
 
             let gain = fadeGain(frameIndex: frameIndex, totalFrames: totalFrames,
-                                 fadeInFrames: fadeInFrames, fadeOutFrames: fadeOutFrames)
+                                 fadeOutFrames: fadeOutFrames)
             compositor.render(frameIndex: frameIndex, gain: gain, into: pixelBuffer)
 
             let pts = CMTimeMultiply(frameDuration, multiplier: Int32(frameIndex))
@@ -340,11 +342,11 @@ enum ClipRenderer {
     }
 
     private nonisolated static func fadeGain(frameIndex: Int, totalFrames: Int,
-                                              fadeInFrames: Int, fadeOutFrames: Int) -> Float {
+                                              fadeOutFrames: Int) -> Float {
         var gain: Float = 1
-        if fadeInFrames > 0 && frameIndex < fadeInFrames {
-            gain = min(gain, Float(frameIndex) / Float(fadeInFrames))
-        }
+        // Start on the actual watermarked image, not black: receiving apps
+        // may generate their own poster from the first frame. Audio still
+        // uses config.fadeIn; video retains its fade-out.
         let fadeOutStart = totalFrames - fadeOutFrames
         if fadeOutFrames > 0 && frameIndex >= fadeOutStart {
             let remaining = totalFrames - frameIndex

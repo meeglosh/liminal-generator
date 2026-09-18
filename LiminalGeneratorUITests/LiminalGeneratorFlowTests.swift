@@ -2,30 +2,22 @@
 //  LiminalGeneratorFlowTests.swift
 //  LiminalGeneratorUITests
 //
-//  One end-to-end flow test driving the whole app: splash -> play/pause ->
+//  One end-to-end flow test driving the whole app: launch -> play/pause ->
 //  regenerate melody -> adjust GLOBAL ENV sliders -> enable LOFI BEATS &
 //  generate a beat (LOOP readout changes) -> render & share -> dismiss. Launches with
 //  LG_RENDER_SECONDS=8 so `RenderScreen` renders a short clip instead of the
 //  full 120s (see RenderScreen.swift's `renderConfig()`), keeping the test
 //  fast without touching render logic quality.
 //
-//  Every screenshot is attached to the test result AND written directly to
-//  the scratchpad `uitest/` directory (the simulator process shares the
-//  host filesystem, so a plain FileManager write from the test process is
-//  visible to the host immediately).
+//  Screenshots are retained as attachments in the test result.
 //
 
 import XCTest
 
 final class LiminalGeneratorFlowTests: XCTestCase {
 
-    private let screenshotDir = URL(fileURLWithPath:
-        "/private/tmp/claude-501/-Users-mikejerugim-liminal-generator/760bb4a1-4c05-451e-b850-31664aa8f0ff/scratchpad/uitest"
-    )
-
     override func setUpWithError() throws {
         continueAfterFailure = false
-        try? FileManager.default.createDirectory(at: screenshotDir, withIntermediateDirectories: true)
     }
 
     func testFullGeneratorFlow() throws {
@@ -33,13 +25,13 @@ final class LiminalGeneratorFlowTests: XCTestCase {
         app.launchEnvironment = ["LG_RENDER_SECONDS": "8"]
         app.launch()
 
-        // MARK: 1. Splash -> main header
+        // MARK: 1. Launch -> main header
 
         let header = app.staticTexts["mainHeaderTitle"]
-        XCTAssertTrue(header.waitForExistence(timeout: 10), "Main header should appear after splash")
+        XCTAssertTrue(header.waitForExistence(timeout: 10), "Main header should appear on launch")
 
         let playPauseButton = app.buttons["playPauseButton"]
-        XCTAssertTrue(waitHittable(playPauseButton, timeout: 10), "Play/pause control should become hittable once splash clears")
+        XCTAssertTrue(waitHittable(playPauseButton, timeout: 10), "Play/pause control should be available on launch")
 
         saveScreenshot(app, name: "01_main_top.png")
 
@@ -245,6 +237,19 @@ final class LiminalGeneratorFlowTests: XCTestCase {
 
         dismissShareSheetIfPresent(app)
 
+        // Tip options open without discarding the completed clip.
+        let tipButton = app.buttons["shareTipButton"]
+        XCTAssertTrue(waitHittable(tipButton, timeout: 5))
+        saveScreenshot(app, name: "07_render_complete.png")
+        tipButton.tap()
+        let tipDone = app.buttons["tipJarDoneButton"]
+        XCTAssertTrue(tipDone.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["SUPPORT LIMINAL GENERATOR"].exists)
+        saveScreenshot(app, name: "08_tip_options.png")
+        tipDone.tap()
+        XCTAssertTrue(waitHittable(tipButton, timeout: 5))
+        XCTAssertTrue(app.buttons["RE-SHARE"].exists)
+
         // MARK: Return to main screen
 
         XCTAssertTrue(doneButton.waitForExistence(timeout: 5), "DONE button should still be present after dismissing the share sheet")
@@ -271,7 +276,7 @@ final class LiminalGeneratorFlowTests: XCTestCase {
         app.launch()
 
         let header = app.staticTexts["mainHeaderTitle"]
-        XCTAssertTrue(header.waitForExistence(timeout: 10), "Main header should appear after splash")
+        XCTAssertTrue(header.waitForExistence(timeout: 10), "Main header should appear on launch")
 
         let spaceSlider = app.otherElements["spaceSlider"]
         scrollUntilHittable(spaceSlider, in: app)
@@ -308,12 +313,81 @@ final class LiminalGeneratorFlowTests: XCTestCase {
                           "The vertical drag should have scrolled the page (slider's on-screen position should move)")
     }
 
+    /// Captures the CRT power-on / power-off treatment added to
+    /// `VHSImageCard` (bright line snap-open -> vertical bloom -> decaying
+    /// tracking wobble on power-on; collapse-to-line-then-dot fade on
+    /// power-off) as a burst of full-screen screenshots, so the transition
+    /// can be inspected frame-by-frame from the test result bundle instead
+    /// of relying only on code review + before/after stills. Deterministic:
+    /// it doesn't assert on animation timing, only on the PLAY/PAUSE label
+    /// flip (same signal `testFullGeneratorFlow` uses), and screenshots are
+    /// pure observation so a slow CI machine sampling fewer mid-flight
+    /// frames still passes.
+    func testCRTPowerToggleAnimationCapture() throws {
+        let app = XCUIApplication()
+        app.launchEnvironment = ["LG_RENDER_SECONDS": "8"]
+        app.launch()
+
+        let header = app.staticTexts["mainHeaderTitle"]
+        XCTAssertTrue(header.waitForExistence(timeout: 10), "Main header should appear on launch (past splash)")
+
+        let playPauseButton = app.buttons["playPauseButton"]
+        XCTAssertTrue(waitHittable(playPauseButton, timeout: 10), "Play/pause control should be available on launch")
+        XCTAssertTrue(playPauseButton.label.uppercased().contains("PLAY"), "Should start OFF/PLAY. Label was: \(playPauseButton.label)")
+
+        // MARK: OFF (settled, dead CRT) before switch-on
+        saveScreenshot(app, name: "crt_00_off_settled.png")
+
+        // MARK: switch-ON burst -- line snap (~0.08s) + vertical bloom
+        // (~0.18s) + decaying tracking wobble (~0.25s) => ~0.5-0.6s total.
+        playPauseButton.tap()
+        burstScreenshots(app, prefix: "crt_on", duration: 0.65)
+
+        let flippedToPause = waitFor(timeout: 3) { playPauseButton.label.uppercased().contains("PAUSE") }
+        XCTAssertTrue(flippedToPause, "Play control should flip to PAUSE after tapping PLAY. Label was: \(playPauseButton.label)")
+
+        // MARK: ON (settled) after switch-on
+        saveScreenshot(app, name: "crt_01_on_settled.png")
+
+        // MARK: switch-OFF burst -- collapse to line, shrink to dot, fade
+        // (~0.35s total).
+        playPauseButton.tap()
+        burstScreenshots(app, prefix: "crt_off", duration: 0.45)
+
+        let flippedToPlay = waitFor(timeout: 3) { playPauseButton.label.uppercased().contains("PLAY") }
+        XCTAssertTrue(flippedToPlay, "Play control should flip back to PLAY after tapping PAUSE. Label was: \(playPauseButton.label)")
+
+        // MARK: OFF (settled) after switch-off
+        saveScreenshot(app, name: "crt_02_off_settled_again.png")
+    }
+
     // MARK: - Helpers
 
-    /// Saves a screenshot both as an XCTAttachment (visible in the test
-    /// report) and as a plain PNG file in the scratchpad uitest directory
-    /// (the simulator shares the host filesystem, so this file is
-    /// immediately readable from outside the test process).
+    /// Fires a tight loop of `XCUIScreen.main.screenshot()` captures for
+    /// `duration` seconds, attaching each one immediately with an elapsed-
+    /// time-stamped name so the frames can be sorted and read in order once
+    /// extracted from the .xcresult bundle. No artificial delay between
+    /// captures -- screenshot capture + attach itself takes real wall time,
+    /// so this samples as densely as the harness allows rather than
+    /// guaranteeing a fixed frame count (a fast machine catches more
+    /// in-flight beats of the animation; a slow one catches fewer, but
+    /// still brackets the transition with the settled before/after stills
+    /// taken by the caller).
+    private func burstScreenshots(_ app: XCUIApplication, prefix: String, duration: TimeInterval) {
+        let start = Date()
+        var frame = 0
+        while Date().timeIntervalSince(start) < duration {
+            let elapsedMs = Int(Date().timeIntervalSince(start) * 1000)
+            let screenshot = XCUIScreen.main.screenshot()
+            let attachment = XCTAttachment(screenshot: screenshot)
+            attachment.name = String(format: "%@_%03d_t%04dms.png", prefix, frame, elapsedMs)
+            attachment.lifetime = .keepAlways
+            add(attachment)
+            frame += 1
+        }
+    }
+
+    /// Retains screenshots in the portable Xcode test result bundle.
     private func saveScreenshot(_ app: XCUIApplication, name: String) {
         let screenshot = app.screenshot()
 
@@ -321,9 +395,6 @@ final class LiminalGeneratorFlowTests: XCTestCase {
         attachment.name = name
         attachment.lifetime = .keepAlways
         add(attachment)
-
-        let fileURL = screenshotDir.appendingPathComponent(name)
-        try? screenshot.pngRepresentation.write(to: fileURL)
     }
 
     /// Polls `condition` on the main run loop (via a short-lived

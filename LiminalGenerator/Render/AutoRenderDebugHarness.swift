@@ -10,37 +10,29 @@
 //  progress/result to stdout so it can be captured via `xcrun simctl launch
 //  --console-pty` / `simctl spawn ... log stream`.
 //
-//  This lives entirely in Render/ (no edits to MainView/App files owned by
-//  other agents). Swift disallows overriding the Objective-C `+load`/
-//  `+initialize` hooks directly, so the pre-main entry point instead comes
-//  from a tiny C constructor (`AutoRenderBootstrap.c`, `__attribute__((
-//  constructor))`, run by dyld before `main()`) that calls this file's
-//  `@_cdecl`-exported `lg_autorender_bootstrap()`. It never fires unless
-//  the env var is explicitly set, so ordinary launches are unaffected.
-//
-
 #if DEBUG
 import Foundation
 import UIKit
 import CoreImage
 import CoreVideo
 
-@_cdecl("lg_autorender_bootstrap")
-func lg_autorender_bootstrap() {
-    if ProcessInfo.processInfo.environment["LG_DEBUG_GLITCH_DUMP"] == "1" {
-        Task { @MainActor in
-            AutoRenderDebugHarness.runGlitchDump()
-        }
-        return
-    }
-    guard ProcessInfo.processInfo.environment["LG_AUTORENDER"] == "1" else { return }
-    let seconds = ProcessInfo.processInfo.environment["LG_RENDER_SECONDS"].flatMap(Double.init) ?? 120
-    Task { @MainActor in
-        await AutoRenderDebugHarness.runAutoRender(seconds: seconds)
-    }
-}
-
+@MainActor
 enum AutoRenderDebugHarness {
+    private static var hasRun = false
+
+    /// Explicit debug launch options, invoked once from the app's root task.
+    static func runIfRequested() async {
+        guard !hasRun else { return }
+        hasRun = true
+        let environment = ProcessInfo.processInfo.environment
+        if environment["LG_DEBUG_GLITCH_DUMP"] == "1" {
+            runGlitchDump()
+        } else if environment["LG_AUTORENDER"] == "1" {
+            let seconds = environment["LG_RENDER_SECONDS"].flatMap(Double.init) ?? 120
+            await runAutoRender(seconds: seconds)
+        }
+    }
+
     /// Renders frames directly through `VHSFrameCompositor` (bypassing
     /// AVAssetWriter/H.264 entirely) until the tracking-glitch band fires,
     /// then dumps that raw composited frame straight to PNG -- used to

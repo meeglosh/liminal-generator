@@ -91,6 +91,8 @@ struct MainView: View {
                     .font(.system(size: 18))
                     .foregroundColor(.liminalOnSurfaceVariant)
             }
+            .accessibilityLabel("About and support")
+            .accessibilityIdentifier("aboutButton")
         }
         .padding(.horizontal, LiminalMetrics.marginMobile)
         .padding(.vertical, LiminalMetrics.stackMedium)
@@ -187,7 +189,7 @@ struct MainView: View {
     // MARK: - BASSLINE card
 
     private var bassCardContent: some View {
-        VStack(alignment: .leading, spacing: LiminalMetrics.stackMedium) {
+        VStack(alignment: .leading, spacing: 0) {
             HStack {
                 Text("ENABLE BASS")
                     .font(.spaceMono(size: 12))
@@ -204,7 +206,7 @@ struct MainView: View {
                     .frame(height: 1)
             }
 
-            if engine.bassEnabled {
+            LiminalAccordionBody(isExpanded: engine.bassEnabled) {
                 VStack(spacing: LiminalMetrics.stackMedium) {
                     LiminalSliderRow(
                         label: "COLOR",
@@ -229,10 +231,8 @@ struct MainView: View {
                     }
                     .accessibilityIdentifier("generateBassButton")
                 }
-                .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .animation(.easeOut(duration: 0.2), value: engine.bassEnabled)
     }
 
     // MARK: - GLOBAL ENV card
@@ -277,7 +277,7 @@ struct MainView: View {
     // MARK: - DRUMS card
 
     private var drumsCardContent: some View {
-        VStack(alignment: .leading, spacing: LiminalMetrics.stackMedium) {
+        VStack(alignment: .leading, spacing: 0) {
             HStack {
                 Text("ENABLE LOFI BEATS")
                     .font(.spaceMono(size: 12))
@@ -294,7 +294,7 @@ struct MainView: View {
                     .frame(height: 1)
             }
 
-            if engine.drumsEnabled {
+            LiminalAccordionBody(isExpanded: engine.drumsEnabled) {
                 VStack(spacing: LiminalMetrics.stackMedium) {
                     LiminalSliderRow(
                         label: "LEVEL",
@@ -304,6 +304,16 @@ struct MainView: View {
                         value: $engine.drumLevel,
                         sliderAccessibilityIdentifier: "drumLevelSlider"
                     )
+
+                    HStack {
+                        Text("BREAKS")
+                            .font(.spaceMono(size: 12))
+                            .tracking(1)
+                            .foregroundColor(.liminalTapeHiss)
+                        Spacer()
+                        LiminalToggle(isOn: $engine.breaksEnabled)
+                            .accessibilityIdentifier("breaksToggle")
+                    }
 
                     DiceDeckButton(title: "Generate Beat") {
                         engine.regenerateBeat()
@@ -326,10 +336,8 @@ struct MainView: View {
                     .font(.spaceMono(size: 11))
                     .tracking(0.5)
                 }
-                .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .animation(.easeOut(duration: 0.2), value: engine.drumsEnabled)
     }
 
     // MARK: - Render bar
@@ -349,5 +357,5 @@ struct MainView: View {
 }
 
 #Preview {
-    MainView()
+    MainView().environmentObject(TipStore())
 }

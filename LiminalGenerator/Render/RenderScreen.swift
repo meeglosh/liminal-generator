@@ -164,6 +164,7 @@ struct RenderScreen: View {
     @StateObject private var viewModel: RenderViewModel
     @Environment(\.dismiss) private var dismiss
 
+    @State private var showTipJar = false
     @State private var cursorOn = true
     @State private var spinnerIndex = 0
     private let spinnerFrames = ["\\", "|", "/", "-"]
@@ -191,6 +192,9 @@ struct RenderScreen: View {
         .onReceive(cursorTimer) { _ in cursorOn.toggle() }
         .onReceive(spinnerTimer) { _ in spinnerIndex = (spinnerIndex + 1) % spinnerFrames.count }
         .onAppear { viewModel.start() }
+        .sheet(isPresented: $showTipJar) {
+            TipJarSheet()
+        }
         .sheet(isPresented: $viewModel.showShareSheet) {
             if case .complete(let url) = viewModel.stage {
                 ShareSheet(items: [VideoShareItem(url: url, thumbnail: viewModel.shareThumbnail)])
@@ -326,6 +330,16 @@ struct RenderScreen: View {
                                               borderColor: .liminalOutlineVariant, bottomBorderColor: .liminalOutlineVariant))
                 .accessibilityIdentifier("doneButton")
             }
+
+            Button("Buy me a coffee") {
+                showTipJar = true
+            }
+            .font(.spaceMono(size: 13))
+            .foregroundColor(.liminalCRTGreenDim)
+            .frame(minHeight: 44)
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("shareTipButton")
+            .accessibilityHint("Opens optional one-time tip amounts.")
         }
     }
 

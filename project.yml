@@ -53,6 +53,23 @@ targets:
     dependencies:
       - target: Liminal Generator
 
+  LiminalGeneratorStoreTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: LiminalGeneratorStoreTests
+      - path: Configuration/TipJar.storekit
+        buildPhase: resources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.gapco.LiminalGeneratorStoreTests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Liminal Generator.app/Liminal Generator"
+        BUNDLE_LOADER: "$(TEST_HOST)"
+    dependencies:
+      - target: Liminal Generator
+
 schemes:
   Liminal Generator:
     build:
@@ -65,5 +82,20 @@ schemes:
       config: Debug
       targets:
         - LiminalGeneratorUITests
+    archive:
+      config: Release
+
+  Liminal Generator StoreKit:
+    build:
+      targets:
+        Liminal Generator: all
+        LiminalGeneratorStoreTests: [test]
+    run:
+      config: Debug
+      storeKitConfiguration: Configuration/TipJar.storekit
+    test:
+      config: Debug
+      targets:
+        - LiminalGeneratorStoreTests
     archive:
       config: Release

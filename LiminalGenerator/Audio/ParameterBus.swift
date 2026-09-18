@@ -28,6 +28,11 @@ final class ParamSnapshot: @unchecked Sendable {
     let age: Float
     let drumsEnabled: Bool
     let drumLevel: Float
+    /// Whether the deterministic drum-break schedule (see
+    /// `LiveDrumBreakSchedule` / `DrumBreakArrangement`) is allowed to gate
+    /// the drum+bass buses at all. Default `true` to preserve the shipped
+    /// export behavior. Has no effect when `drumsEnabled` is false.
+    let breaksEnabled: Bool
     let speed: Float
     let color: Float
     let waveform: LiminalWaveform
@@ -38,13 +43,14 @@ final class ParamSnapshot: @unchecked Sendable {
     /// layer only (pads + melody). 0 = fully dry, 1 = full 50/50 wet blend.
     let nostalgia: Float
 
-    init(space: Float, age: Float, drumsEnabled: Bool, drumLevel: Float, speed: Float, color: Float,
-         waveform: LiminalWaveform, bassEnabled: Bool, bassColor: Float, bassLevel: Float,
+    init(space: Float, age: Float, drumsEnabled: Bool, drumLevel: Float, breaksEnabled: Bool, speed: Float,
+         color: Float, waveform: LiminalWaveform, bassEnabled: Bool, bassColor: Float, bassLevel: Float,
          nostalgia: Float) {
         self.space = space
         self.age = age
         self.drumsEnabled = drumsEnabled
         self.drumLevel = drumLevel
+        self.breaksEnabled = breaksEnabled
         self.speed = speed
         self.color = color
         self.waveform = waveform
@@ -55,7 +61,7 @@ final class ParamSnapshot: @unchecked Sendable {
     }
 
     static let initial = ParamSnapshot(space: 0.55, age: 0.4, drumsEnabled: false, drumLevel: 0.65,
-                                        speed: 0.5, color: 0.5, waveform: .triangle,
+                                        breaksEnabled: true, speed: 0.5, color: 0.5, waveform: .triangle,
                                         bassEnabled: false, bassColor: 0.5, bassLevel: 0.65,
                                         nostalgia: 0.4)
 }

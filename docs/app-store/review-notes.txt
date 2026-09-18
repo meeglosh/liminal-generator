@@ -1,0 +1,7 @@
+No login or account is required. All creative features are free.
+
+To test: tap PLAY, use GENERATE MELODY, swipe the image, optionally enable bass and drums, then tap RENDER & SHARE. Export produces a two-minute square H.264/AAC video; keep the app open while it renders. The system share sheet appears when complete. Close it to access RE-SHARE, DONE, and Buy me a coffee.
+
+Optional tips are repeatable consumable in-app purchases. They do not unlock content, features, credits, or subscriptions. Find the tip options under the gear (About and support) or Buy me a coffee on the completed-render screen. No restore entitlement exists for these tips.
+
+The app contains bundled generated imagery, procedural music, CC0 drum loops by holizna, and Space Mono under the SIL Open Font License. Credits are in About. Privacy and support links are also in About. No camera, microphone, location, contacts, tracking, or sign-in access is needed.
