@@ -17,6 +17,13 @@ struct MainView: View {
     @State private var timestamp = VHSTimestamp.random()
     @State private var showAbout = false
     @State private var showRender = false
+    /// Mirrors `VHSImageCard`'s settled CRT power state (see that struct's
+    /// `isScreenOn` doc comment) so the location chip below the card can fade
+    /// in/out in lockstep with the card's own OSD, rather than with
+    /// `engine.isPlaying` directly — binding to `isPlaying` would reveal the
+    /// chip the instant PLAY is tapped, while the screen is still black or
+    /// mid switch-on.
+    @State private var isCardScreenOn = false
 
     var body: some View {
         ZStack {
@@ -111,6 +118,7 @@ struct MainView: View {
                 index: $imageIndex,
                 timestamp: $timestamp,
                 isPlaying: engine.isPlaying,
+                isScreenOn: $isCardScreenOn,
                 onTogglePlay: {
                     if engine.isPlaying {
                         engine.pause()
@@ -120,7 +128,21 @@ struct MainView: View {
                 }
             )
 
+            // Gated on the card's settled power state (`isCardScreenOn`),
+            // not `engine.isPlaying` — naming the location on a screen
+            // that's still black (switch-on) or lingering after it goes dark
+            // (switch-off) would undercut the dead-CRT illusion the card is
+            // going for. Opacity-only (not `if`/conditional view) so this
+            // reserves its layout space the whole time; the SYNTH card etc.
+            // below never jump when the chip goes dark. The fade itself
+            // isn't wrapped in an explicit `.animation` here — it rides the
+            // same transaction `VHSImageCard.powerOn`/`powerOff` already
+            // established when writing this binding, so it matches the
+            // OSD's own reveal/cut timing (and reduce-motion behavior) for
+            // free without duplicating those constants in this file.
             LiminalChip(text: currentImage.locationName)
+                .opacity(isCardScreenOn ? 1 : 0)
+                .accessibilityHidden(!isCardScreenOn)
         }
     }
 

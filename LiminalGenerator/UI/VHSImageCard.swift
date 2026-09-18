@@ -86,9 +86,27 @@ private struct VHSOSDOverlay: View {
     /// time the card pages to a new image), so the attract *phase* below is
     /// local, disposable animation state that simply restarts on rebuild.
     let attractPlay: Bool
+    /// Mirrors `VHSImageCard`'s own `hasTappedPlay` (see its doc comment) —
+    /// before the user's first tap this session the PLAY control sits
+    /// centered and 2x size; after that first tap it lives bottom-left at
+    /// normal size permanently, independent of `isPlaying`/`showInfo`. This
+    /// overlay only ever gets rebuilt (losing its local `@State`) via a page
+    /// swipe, and swiping is disallowed until the screen is on, which can't
+    /// happen before the first tap — so the single glide from center to the
+    /// corner always plays out within one overlay instance.
+    let hasTappedPlay: Bool
+    /// The card's own on-screen size (it's square, so width == height) —
+    /// needed to compute the centered placement and the offset back to the
+    /// permanent bottom-left corner. See `centeringOffset`.
+    let cardSize: CGSize
 
     @State private var blinkOn = true
     @State private var attractPulse = false
+    /// The PLAY/PAUSE control's own laid-out size (pre-scale), measured via
+    /// `onGeometryChange` so `centeringOffset` can reproduce exactly where
+    /// the bottom-left `.padding(12)` placement would anchor it, without
+    /// hardcoding label-width assumptions.
+    @State private var buttonSize: CGSize = .zero
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     private let blinkTimer = Timer.publish(every: 0.5, on: .main, in: .common).autoconnect()
 
@@ -115,7 +133,10 @@ private struct VHSOSDOverlay: View {
                 .padding(12)
                 .opacity(showInfo ? 1 : 0)
 
-            // Bottom-left: PLAY / PAUSE control. While `attractPlay` is true it
+            // Bottom-left (permanent home once `hasTappedPlay`): PLAY / PAUSE
+            // control. Before the first tap it instead sits centered at 2x
+            // size (see `centeringOffset`/`attractScale`) — an obvious first
+            // target on the dead screen. While `attractPlay` is true it also
             // throbs — a gentle scale pulse plus a swelling CRT-green glow —
             // to pull the eye to it before the user has ever pressed it.
             Button(action: onTogglePlay) {
@@ -141,9 +162,22 @@ private struct VHSOSDOverlay: View {
                 // `updateAttractAnimation()`, applied outside this HStack on
                 // the Button itself, so they're unaffected).
                 .animation(nil, value: isPlaying)
+                // Measured pre-scale (the HStack's own layout size never
+                // changes under `.scaleEffect`), so `centeringOffset` below
+                // can compute the exact bottom-left anchor point this button
+                // would occupy under its permanent `.padding(12)` placement.
+                // The label is always "PLAY" pre-tap (can't be playing
+                // without having tapped play first), so this is stable
+                // throughout the only period it's actually used.
+                .onGeometryChange(for: CGSize.self, of: { $0.size }) { buttonSize = $0 }
             }
             .buttonStyle(.plain)
             .scaleEffect(attractScale)
+            // Slides the button from its permanent bottom-left anchor to the
+            // card's center pre-tap; zero (no-op) once `hasTappedPlay`, so
+            // the permanent placement below is untouched by this modifier
+            // for the rest of the session.
+            .offset(centeringOffset)
             .shadow(color: .liminalCRTGreenDim.opacity(attractGlowOpacity), radius: attractGlowRadius)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
             .padding(12)
@@ -173,11 +207,32 @@ private struct VHSOSDOverlay: View {
         }
     }
 
+    /// Base 2.0 pre-tap / 1.0 permanent, times the attract pulse's small
+    /// multiplicative bump on top (pulse only ever runs pre-tap, since
+    /// `attractPlay` implies `!hasTappedPlay`).
     private var attractScale: CGFloat {
-        guard attractPlay, attractPulse, !reduceMotion else { return 1.0 }
-        return 1.06
+        let base: CGFloat = hasTappedPlay ? 1.0 : 2.0
+        guard attractPlay, attractPulse, !reduceMotion else { return base }
+        return base * 1.06
     }
 
+    /// Slides the button from its permanent bottom-left anchor to the card's
+    /// center. Reproduces where the `.frame(alignment: .bottomLeading)` +
+    /// `.padding(12)` placement below would anchor the button (using the
+    /// measured pre-scale `buttonSize`), then offsets from there to the
+    /// card's center — so at `hasTappedPlay == true` this is exactly zero
+    /// and the permanent placement is completely undisturbed.
+    private var centeringOffset: CGSize {
+        guard !hasTappedPlay, buttonSize != .zero, cardSize != .zero else { return .zero }
+        let padding: CGFloat = 12
+        let anchorX = padding + buttonSize.width / 2
+        let anchorY = cardSize.height - padding - buttonSize.height / 2
+        return CGSize(width: cardSize.width / 2 - anchorX, height: cardSize.height / 2 - anchorY)
+    }
+
+    // Glow constants are bumped up for the larger pre-tap button so the
+    // glow still reads as proportionate to the control — this branch only
+    // ever executes pre-tap (`attractPlay` implies `!hasTappedPlay`).
     private var attractGlowOpacity: Double {
         guard attractPlay else { return 0.0 }
         return attractPulse ? 0.9 : 0.25
@@ -185,7 +240,7 @@ private struct VHSOSDOverlay: View {
 
     private var attractGlowRadius: CGFloat {
         guard attractPlay else { return 0.0 }
-        return attractPulse ? 10 : 3
+        return attractPulse ? 15 : 5
     }
 
     private var recOpacity: Double {
@@ -209,6 +264,13 @@ struct VHSImageCard: View {
     @Binding var index: Int
     @Binding var timestamp: VHSTimestamp
     let isPlaying: Bool
+    /// Mirrors `isScreenOn` below (declared here, alongside the other
+    /// caller-supplied parameters, rather than down by its sibling power-
+    /// state properties) purely so the synthesized memberwise initializer's
+    /// parameter order matches how call sites read: index, timestamp,
+    /// isPlaying, isScreenOn, onTogglePlay. See `isScreenOn`'s own doc
+    /// comment near the rest of the CRT power state for what it means.
+    @Binding var isScreenOn: Bool
     let onTogglePlay: () -> Void
 
     @State private var timeOrigin = Date()
@@ -234,11 +296,13 @@ struct VHSImageCard: View {
     // sequence is expressed as a chain of `withAnimation(_:completion:)`
     // calls (iOS 17) rather than a state machine — see `powerOn`/`powerOff`.
 
-    /// True only once the switch-on sequence has fully settled: OSD info
-    /// (timestamp/REC/SP) is visible and swiping is allowed. False the
-    /// instant switch-off begins (OSD/swipe cut immediately; the picture
-    /// keeps animating closed for a moment after).
-    @State private var isScreenOn = false
+    // `isScreenOn` itself is declared up top with the other caller-supplied
+    // parameters (see its doc comment there) — true only once the switch-on
+    // sequence has fully settled: OSD info (timestamp/REC/SP) is visible and
+    // swiping is allowed. False the instant switch-off begins (OSD/swipe cut
+    // immediately; the picture keeps animating closed for a moment after).
+    // This is the only place that writes it, in `powerOn`/`powerOff`.
+
     /// Gates whether the three image pages' `TimelineView`s tick at all
     /// (see `VHSFilteredImage`'s `isActive` → `paused:`). Set true at the
     /// *start* of switch-on (before the picture is visible) so the shader
@@ -341,10 +405,29 @@ struct VHSImageCard: View {
                             isPlaying: isPlaying,
                             showInfo: isScreenOn,
                             onTogglePlay: {
-                                hasTappedPlay = true
+                                // The very first tap of the session also
+                                // glides PLAY from its centered/2x resting
+                                // place to its permanent bottom-left home —
+                                // timed to land alongside the CRT switch-on
+                                // sequence below (`powerOn`, ~0.5s) so it
+                                // reads as one event ("the CRT waking up"),
+                                // not a widget sliding around independently.
+                                // Every tap after this one is a no-op here:
+                                // `hasTappedPlay` is already true, so this
+                                // withAnimation wraps a state write that
+                                // doesn't actually change anything.
+                                if reduceMotion {
+                                    hasTappedPlay = true
+                                } else {
+                                    withAnimation(.easeOut(duration: 0.5)) {
+                                        hasTappedPlay = true
+                                    }
+                                }
                                 onTogglePlay()
                             },
-                            attractPlay: !hasTappedPlay && !isPlaying
+                            attractPlay: !hasTappedPlay && !isPlaying,
+                            hasTappedPlay: hasTappedPlay,
+                            cardSize: geo.size
                         )
                     }
                     .clipped()
@@ -391,25 +474,81 @@ struct VHSImageCard: View {
 
     // MARK: - CRT switch-on / switch-off
 
-    /// A faint dark radial vignette plus a barely-there diagonal glass
-    /// reflection — deliberately restrained per the product spec ("off",
-    /// not "decorated"). No animation, no TimelineView: this is the whole
-    /// reason the off-state is cheap.
+    /// Reads as dark glass with a tube behind it, not an empty rectangle —
+    /// deliberately restrained per the product spec ("a convincing dead
+    /// screen, not a decorated one"). No animation, no TimelineView: this is
+    /// the whole reason the off-state is cheap. Layers, back to front:
+    /// a lifted, slightly warm grey-green base (never pure black) built
+    /// from existing design-system tokens rather than a bespoke color, a
+    /// broad low-contrast specular sheen standing in for a curved glass
+    /// surface catching ambient light, a corner vignette for tube
+    /// curvature, and a scattering of near-invisible static dust so the
+    /// surface isn't a perfectly flat gradient.
     private func crtOffBackdrop(width: CGFloat) -> some View {
         ZStack {
-            Color.black
+            // Base glass tone. `liminalSurfaceContainerLowest` alone reads
+            // as pure black on an OLED; tinting it faintly with the design
+            // system's dark olive-green outline token lifts it just enough
+            // to register as glass, and keeps the off-state cohesive with
+            // the CRT-green palette instead of introducing a new color.
+            Color.liminalSurfaceContainerLowest
+            Color.liminalOutlineVariant.opacity(0.16)
+
+            // Broad, soft specular sheen — a curved glass surface catching
+            // ambient light from the upper-left. Large radius and a slow,
+            // multi-stop falloff keep it diffuse; there is no hard edge
+            // anywhere in this gradient.
             RadialGradient(
-                colors: [Color.white.opacity(0.05), Color.clear],
-                center: .center,
+                colors: [
+                    Color.liminalOutline.opacity(0.11),
+                    Color.liminalOutline.opacity(0.045),
+                    Color.liminalOutline.opacity(0.015),
+                    .clear
+                ],
+                center: UnitPoint(x: 0.3, y: 0.2),
                 startRadius: 0,
-                endRadius: width * 0.7
+                endRadius: width * 0.95
             )
-            LinearGradient(
-                colors: [Color.white.opacity(0.025), .clear, .clear],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
+
+            // Vignette: darker into the corners, consistent with tube
+            // curvature. Pure black (not tinted) so it reads as shadow/
+            // depth rather than adding more color.
+            RadialGradient(
+                colors: [.clear, Color.black.opacity(0.5)],
+                center: .center,
+                startRadius: width * 0.3,
+                endRadius: width * 0.75
             )
+
+            // Faint static phosphor dust: a handful of near-invisible
+            // flecks. Seeded so the pattern is fixed rather than actual
+            // per-frame noise — this is still a single static draw, not a
+            // TimelineView, so it doesn't reintroduce per-frame cost.
+            staticDust(width: width)
         }
+    }
+
+    /// A sparse scattering of near-invisible dust/phosphor flecks over the
+    /// dead screen, using the same deterministic `SeededGenerator` the
+    /// audio side uses for reproducible randomness (see
+    /// `Audio/PatternGenerator.swift`) so the pattern is fixed rather than
+    /// re-rolled (and thus visibly "twinkling") on every body re-evaluation.
+    private func staticDust(width: CGFloat) -> some View {
+        Canvas { context, size in
+            var rng = SeededGenerator(seed: 1998)
+            for _ in 0..<36 {
+                let x = CGFloat.random(in: 0...size.width, using: &rng)
+                let y = CGFloat.random(in: 0...size.height, using: &rng)
+                let diameter = CGFloat.random(in: 0.4...1.1, using: &rng)
+                let opacity = Double.random(in: 0.015...0.05, using: &rng)
+                context.fill(
+                    Path(ellipseIn: CGRect(x: x, y: y, width: diameter, height: diameter)),
+                    with: .color(.white.opacity(opacity))
+                )
+            }
+        }
+        .frame(width: width, height: width)
+        .allowsHitTesting(false)
     }
 
     /// The bright horizontal line used for both the switch-on "snap open"

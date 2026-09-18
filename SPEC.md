@@ -59,7 +59,8 @@ All DSP is plain-Swift, sample-based, shared verbatim between realtime and offli
   lock-free snapshot struct).
 - `AudioEngineController: ObservableObject` — wraps AVAudioEngine: `AVAudioSourceNode(LiminalDSPCore)` →
   `AVAudioUnitReverb` → mainMixer. Published: `isPlaying`, `space: Float` (0–1 → reverb wetDry 0–100 and
-  slight decay character), `age: Float` (0–1 → wow/flutter depth+rate, tape hiss level, gentle lowpass),
+  slight decay character), `age: Float` (0–1 → wow/flutter depth+rate, tape hiss level, gentle lowpass;
+  default 0.1 — displays as 1 on the UI's 0–10 scale, chosen deliberately for light tape character on launch),
   `speed: Float` (0–1, default 0.5 → tempo/playback-rate multiplier 0.70x…1.30x, 0.5 = 1.0x/normal — see
   "Musical style"), `color: Float` (0–1, default ~0.5 → synth-only filter tone, dark…bright — see below),
   `drumsEnabled`, `drumLevel: Float` (0–1 mapped -inf…+6dB), `currentPattern: ArpeggioPattern`,
@@ -435,17 +436,29 @@ final class AudioEngineController: ObservableObject {
 }
 ```
 
-**PLAY attract pulse**: until the user taps PLAY for the first time in a session, the PLAY control pulses
-(subtle ~1.06x scale) and glows (swelling CRT-green shadow) on a ~1.4s autoreversing loop, to draw the eye to
-it. The moment it's tapped, the pulse stops for the rest of the session — including across image swipes, so
-this "has the user ever pressed play" flag lives on the image card itself, not on the per-image OSD overlay
-that gets rebuilt on every swipe. Under `accessibilityReduceMotion` the scale pulse is dropped; only the glow
-keeps breathing.
+**PLAY attract pulse + first-tap placement**: before the user's first tap of PLAY in a session
+(`hasTappedPlay == false`), the PLAY control sits centered in the image area at 2x its normal size, pulsing
+(subtle ~1.06x scale on top of that 2x base) and glowing (swelling CRT-green shadow) on a ~1.4s autoreversing
+loop, to draw the eye to it on the dead screen. On that first tap it animates from center/2x to its permanent
+bottom-left home at normal size over ~0.5s easeOut, timed to land alongside the CRT switch-on sequence below
+so it reads as one event ("the CRT waking up") rather than a widget sliding around independently; under
+`accessibilityReduceMotion` it snaps straight to the bottom-left home instead of animating. The moment it's
+tapped, both the pulse/glow AND the centered placement stop for the rest of the session — including across
+image swipes and later pauses, so this "has the user ever pressed play" flag lives on the image card itself
+(not the per-image OSD overlay that gets rebuilt on every swipe) and is keyed off `hasTappedPlay`, not the
+screen's on/off state. Deliberately: PLAY does **not** re-center when the user pauses later in the session —
+it stays bottom-left permanently once tapped once.
 
-**CRT off / switch-on state**: whenever nothing is playing, the VHS image card reads as a powered-off CRT —
-fully black but for a faint static radial sheen and a barely-there diagonal glass reflection, no VHS shader
-running, no OSD (timestamp/REC/SP hidden), swipe paging disabled. PLAY is the only thing present on a dead
-screen. Tapping PLAY runs a ~0.5s switch-on sequence: a bright horizontal line snaps open from center
+**CRT off / switch-on state**: whenever nothing is playing, the VHS image card reads as a dead CRT's glass,
+not near-pure black: a warm charcoal-green base (lifted just off OLED-black with the design system's dark
+olive-green outline token), a broad diffuse specular sheen standing in for a curved glass surface catching
+light from the upper-left, a corner vignette suggesting tube curvature, and a faint scattering of near-
+invisible static-dust flecks (seeded/fixed, not per-frame noise, so it doesn't twinkle on redraw) — no VHS
+shader running, no OSD (timestamp/REC/SP hidden), swipe paging disabled. PLAY is the only thing present on a
+dead screen. The location chip below the image card (naming `currentImage.locationName`) hides and reveals in
+lockstep with this same settled on/off state (via a `MainActor`-owned `@State` mirror in `MainView`, not
+`isPlaying` directly), staying opacity-only so the layout slot is always reserved and nothing below the card
+shifts. Tapping PLAY runs a ~0.5s switch-on sequence: a bright horizontal line snaps open from center
 (~0.08s) → blooms vertically to fill the frame (~0.18s) → the picture settles through a brief decaying
 horizontal tracking wobble (~0.25s), with a matched horizontal overscan on the picture so the wobble never
 exposes the black backdrop at the frame edge → OSD fades in and swipe paging re-enables. Pausing reverses it

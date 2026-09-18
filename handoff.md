@@ -1,12 +1,27 @@
 ## Unreleased on branch `codex/ntscrt-vhs-slideshow` (2026-09-17)
-- PLAY button attract pulse: until the user first taps PLAY in a session, the control pulses (~1.06x scale)
-  and glows (swelling CRT-green shadow) on a ~1.4s autoreversing loop (`VHSImageCard.swift`); the "has tapped"
-  flag lives on `VHSImageCard` itself so it survives image paging. Reduce Motion drops the scale, keeps the glow.
-- CRT off/switch-on treatment: the image card is a fully black dead CRT (OSD hidden, swipe paging disabled)
-  whenever nothing is playing; PLAY runs a ~0.5s switch-on (line snap → vertical bloom → decaying tracking
-  wobble with matched horizontal overscan → OSD fade-in), reversed over ~0.35s on pause. Reduce Motion
-  substitutes a 0.3s crossfade. While off, all three paged image views stop ticking (shader/TimelineView
-  genuinely idle, not just covered).
+- PLAY button attract pulse + first-tap placement: before the user's first tap of PLAY in a session, the
+  control sits centered in the image area at 2x size, pulsing (~1.06x scale on top of that) and glowing
+  (swelling CRT-green shadow) on a ~1.4s autoreversing loop (`VHSImageCard.swift`/`VHSOSDOverlay`). On that
+  first tap it animates to its permanent bottom-left home at normal size over ~0.5s easeOut, timed alongside
+  the CRT switch-on so it reads as one event; snaps straight there under Reduce Motion. The "has tapped" flag
+  (`hasTappedPlay`) lives on `VHSImageCard` itself so both the pulse/glow and the centered placement survive
+  image paging, and — deliberately — PLAY does **not** re-center on a later pause; it keys off `hasTappedPlay`,
+  not play/pause state, and stays bottom-left for the rest of the session once tapped once.
+- CRT off/switch-on treatment: the image card is a dead-CRT-glass backdrop (warm charcoal-green base, broad
+  diffuse upper-left specular sheen, corner vignette for tube curvature, faint seeded/fixed static-dust
+  texture — not near-pure black) whenever nothing is playing, replacing the earlier faint-radial-on-black
+  `crtOffBackdrop` treatment (OSD hidden, swipe paging disabled). PLAY runs a ~0.5s switch-on (line snap →
+  vertical bloom → decaying tracking wobble with matched horizontal overscan → OSD fade-in), reversed over
+  ~0.35s on pause. Reduce Motion substitutes a 0.3s crossfade. While off, all three paged image views stop
+  ticking (shader/TimelineView genuinely idle, not just covered). The location chip under the image card
+  (`MainView.swift`, `currentImage.locationName`) now fades in/out in lockstep with this same settled
+  on/off state via a new `@State private var isCardScreenOn` bound to `VHSImageCard.isScreenOn` (now a
+  `@Binding`), instead of `engine.isPlaying` — opacity-only, so its layout slot stays reserved and nothing
+  below the card shifts.
+- AGE default lowered from 0.4 to 0.1 (displays as 1 on the UI's 0–10 scale) — light tape character on
+  launch. Changed in `AudioEngineController.swift` (`@Published var age` default and the literal seeding the
+  live `LiminalDSPCore` in `init()`) and `ParameterBus.swift`'s `ParamSnapshot.initial` (unreferenced
+  fallback, kept in sync for consistency).
 - Fixed a live-preview rendering bug: `layerEffect`'s `maxSampleOffset` made each paged image's shader output
   overhang its own bounds; since the index+1 page draws last, its left overhang smeared a ~9%-wide band of
   the next image onto the current page's right edge. Fixed by clipping each page's filtered output to its own
@@ -23,9 +38,17 @@
   `docs/Drum-breaks.md` for full detail.
 - New UI test `testCRTPowerToggleAnimationCapture` (`LiminalGeneratorUITests/LiminalGeneratorFlowTests.swift`)
   drives a real play/pause cycle and captures screenshot bursts through both CRT transitions as test attachments.
-- Verified on simulator: `python3 tests/run-drum-break-tests.py` passes, including new mid-break toggle-
-  release regression coverage; `xcodebuild test` passes all 3 UI tests. Not yet shipped to TestFlight with
-  these changes — `CFBundleVersion` has not been bumped for them.
+- **Shipped in build 1.0.1 (13)**: the BREAKS toggle, the original CRT off/switch-on power-state treatment, and
+  the PLAY attract pulse (bottom-left, not yet centered/2x pre-tap) — see "Latest TestFlight upload" below.
+  **NOT in build 13** — landed after that upload, still only verified on simulator: the PLAY centered/2x
+  pre-tap placement, the dead-CRT-glass off-state backdrop (replacing the earlier faint-radial-on-black
+  treatment), the location-chip/OSD opacity sync, and the AGE default change to 0.1. These four ride the next
+  build.
+- Current verification state: full 3-test XCUITest suite passes (`xcodebuild test`); `python3
+  tests/run-drum-break-tests.py` passes, including the mid-break toggle-release regression coverage.
+- **Known test flake**: `testFullGeneratorFlow` intermittently fails with "Application
+  com.gapco.LiminalGenerator is not running" after many consecutive `xcodebuild test` runs in one simulator
+  session. Not a regression — clears after `xcrun simctl shutdown` + `boot` on the target simulator.
 - **Open item**: the committed App Store screenshots in `docs/app-store/screenshots/*.png` still have the old
   right-edge smear artifact baked in (from the `maxSampleOffset` bug above) and need regenerating before any
   store submission.
@@ -206,7 +229,10 @@ App Store Connect app id `6804471660`, app name "Liminal Generator".
   next release, bump `CFBundleVersion` to 8 and follow "Release / TestFlight" above (the whole pipeline —
   archive → export → altool upload → poll — is proven and takes ~5 min plus Apple's processing).
 - CRT power state / PLAY attract pulse / BREAKS toggle (branch `codex/ntscrt-vhs-slideshow`, see "Unreleased"
-  above): verified on simulator only, not yet in a TestFlight build.
+  above): the original versions of these three shipped in TestFlight build 1.0.1 (13) (see "TestFlight build
+  13" below). Four refinements on top of them (PLAY centered/2x pre-tap placement, dead-CRT-glass off-state
+  backdrop, location-chip/OSD opacity sync, AGE default 0.1) landed after that upload and are verified on
+  simulator only, not yet in a TestFlight build.
 - OPEN: App Store screenshots under `docs/app-store/screenshots/*.png` still bake in the pre-fix right-edge
   smear artifact and need regenerating before the next store submission.
 - OPEN: share-sheet preview thumbnail fix (build 7) needs on-device confirmation — the bug (black
@@ -284,3 +310,14 @@ Version 1.0 (12), build ID 47ebb704-27d5-4644-8773-cf9b67b6776d, uploaded succes
 ### App Review submission — September 15, 2026
 
 Submission 2d528b5c-7f5d-40a4-bc64-fc0141989ebb was submitted at 2026-09-15T13:46:50.489Z. App version 1.0 build 12 and all three consumable tips report WAITING_FOR_REVIEW. Release is manual, so approval will not publish the app until manually released.
+
+### TestFlight build 13 — September 17, 2026
+
+Build **1.0.1 (13)** uploaded to TestFlight successfully. Delivery UUID `da851084-219f-4b78-bf2a-ea0de4a1e8d7`.
+Includes the BREAKS toggle, the original CRT off/switch-on power-state treatment, and the PLAY attract pulse
+(see the "Unreleased" section above) — but not the four refinements that landed after this upload (PLAY
+centered/2x pre-tap placement, dead-CRT-glass off-state backdrop, location-chip/OSD opacity sync, AGE default
+0.1). The marketing version had to move from **1.0 to 1.0.1**: App Store Connect rejected a 1.0 build with
+errors 90062/90186 because the 1.0 train closed once 1.0 was approved from the earlier submission above.
+Constraint for future builds: keep incrementing the marketing version (can't reopen a closed/approved train),
+not just `CFBundleVersion`. Next build number: 14.

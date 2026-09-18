@@ -60,7 +60,7 @@ final class ParamSnapshot: @unchecked Sendable {
         self.nostalgia = nostalgia
     }
 
-    static let initial = ParamSnapshot(space: 0.55, age: 0.4, drumsEnabled: false, drumLevel: 0.65,
+    static let initial = ParamSnapshot(space: 0.55, age: 0.1, drumsEnabled: false, drumLevel: 0.65,
                                         breaksEnabled: true, speed: 0.5, color: 0.5, waveform: .triangle,
                                         bassEnabled: false, bassColor: 0.5, bassLevel: 0.65,
                                         nostalgia: 0.4)

@@ -67,7 +67,7 @@ final class AudioEngineController: ObservableObject {
         }
     }
 
-    @Published var age: Float = 0.4 { // 0...1
+    @Published var age: Float = 0.1 { // 0...1, default light (1 on the UI's 0–10 scale)
         didSet { dsp.setAge(age) }
     }
 
@@ -177,7 +177,7 @@ final class AudioEngineController: ObservableObject {
         dsp = LiminalDSPCore(pattern: pattern, beat: beat,
                               loopBuffer: LoopLoader.buffers[beat.loopIndex],
                               bassPattern: bassPattern,
-                              space: 0.55, age: 0.4,
+                              space: 0.55, age: 0.1,
                               drumsEnabled: false, drumLevel: 0.65,
                               breaksEnabled: true,
                               speed: 0.5, color: 0.5,
