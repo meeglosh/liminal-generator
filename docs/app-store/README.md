@@ -1,37 +1,33 @@
-# App Store preparation — 1.0 (11)
+# App Store preparation — 1.0.1 (15)
 
-Updated September 15, 2026. Version 1.0 build 12 and all three consumable tips were submitted to App Review at 13:46:50 UTC. The submission is **Waiting for Review** and the app has not been publicly released.
+Updated September 18, 2026. Version 1.0.1 build 15 was submitted to App Review at 01:45:26 UTC on September 19, 2026. The submission is **Waiting for Review**. Version 1.0 is live on the App Store; 1.0.1 is an update and will publish **automatically** once Apple approves it.
 
 ## Completed
 
-- Private App Review contact saved from the user-provided details. Version 1.0 and all three consumable tips were grouped as four items in submission 2d528b5c-7f5d-40a4-bc64-fc0141989ebb.
-- Apple accepted submission 2d528b5c-7f5d-40a4-bc64-fc0141989ebb on September 15, 2026. The app version and all three tip products report WAITING_FOR_REVIEW. Release remains manual.
-
-- Name: Liminal Generator. Subtitle: Ambient Music & VHS Visuals. Primary category: Music.
-- Description, keywords, copyright, content rights, review instructions, and support/privacy URLs saved in App Store Connect.
-- Four native build 12 screenshots at 1320 × 2868 uploaded and processed COMPLETE. They show the equal-width waveform controls and corrected accordion layouts. Apple's API calls the 6.9-inch class APP_IPHONE_67; the website confirms 6.9-inch screenshots are used for smaller sizes.
-- Age questionnaire saved: 9+ (Brazil 10), including infrequent/mild fear themes for the eerie imagery.
-- Free in 175 territories, new territories enabled, manual release.
-- Data Not Collected privacy disclosure published. See privacy-audit.md.
-- Paid Apps Agreement, Free Apps Agreement, bank account, U.S. tax form, and Digital Services Act compliance all show Active in Business. No changes to those records were necessary.
-- Build 12 archived, exported, uploaded successfully, processed VALID, selected for version 1.0, and available to the Internal TestFlight group.
-- Full simulator generator/render/share/tip-sheet UI flow passed on the final source, with zero failures. Git diff whitespace check passed.
+- Version 1.0.1 created for platform IOS with releaseType AFTER_APPROVAL. This is a deliberate change from 1.0, which used manual release: 1.0.1 goes public as soon as review passes.
+- Build 15 uploaded with altool (Delivery UUID f41284dc-aba5-478b-91bb-49c35da51458), processed VALID, and selected for version 1.0.1.
+- Version 1.0.1 was submitted on its own in submission abd340f6-5f07-4fb5-97b5-c907349fd05b. The three consumable tips were already approved with 1.0 and the API did not require them again; the submission holds exactly one item.
+- What's New saved for en-US, covering the BREAKS toggle, the CRT power-on behaviour, the lighter default tape age, and the right-edge smear fix. Read back from the API to confirm the stored text.
+- Five native build 15 screenshots at 1320 × 2868 uploaded and processed COMPLETE, in the order 01-main, 02-bass, 03-drums, 04-export, 05-crt-intro. The four build 12 screenshots that App Store Connect copied onto the new version were deleted first, and the set order was pinned explicitly after upload so the listing shows only the new five. Apple's API still calls the 6.9-inch class APP_IPHONE_67.
+- Name, subtitle, description, keywords, copyright, content rights, App Review contact and notes, support/privacy URLs, age rating, pricing, and territories all carried over unchanged from 1.0. Nothing in that metadata needed re-entry.
+- Data Not Collected privacy disclosure unchanged. See privacy-audit.md.
 
 ## Pending
 
-- Monitor App Store Connect for reviewer questions, rejection, approval, or other required action.
-- Release manually after approval when ready; approval will not publish automatically.
+- Monitor App Store Connect for reviewer questions, rejection, or approval.
+- No release step is needed. Approval publishes 1.0.1 automatically, replacing 1.0 on the store.
 
 ## Links and records
 
 - Support: https://github.com/meeglosh/liminal-generator/tree/codex/app-store-pages
 - Privacy: https://github.com/meeglosh/liminal-generator/blob/codex/app-store-pages/PRIVACY.md
 - App Store Connect: https://appstoreconnect.apple.com/apps/6804471660/distribution
-- Build ID: 1c65e8dd-9091-4c66-a1d7-7f4c3fe85cd7
-- Version ID: 88ff7090-568a-4727-b19b-a8d26334725e
-- Screenshots: screenshots/; current upload IDs in screenshot-upload-build12.json.
-- Candidate archive: /tmp/liminal-testflight-11/LiminalGenerator.xcarchive
-- Candidate IPA: /tmp/liminal-testflight-11/export/Liminal Generator.ipa
-- Final UI test: /tmp/liminal-submission/Logs/Test/Test-Liminal Generator-2026.09.15_08-07-58--0400.xcresult
+- Build ID (15): f41284dc-aba5-478b-91bb-49c35da51458
+- Version ID (1.0.1): 1a23ca02-a100-4380-a035-40dd4173cd4f
+- en-US localization ID: 0593d9ca-23d7-4a2f-91da-b09b56d61adf
+- Screenshot set ID (APP_IPHONE_67): a037c0e7-111f-4534-a828-4af6be25bab1
+- Review submission ID: abd340f6-5f07-4fb5-97b5-c907349fd05b
+- Screenshots: screenshots/; current upload IDs in screenshot-upload.json.
+- Previous submission (1.0 build 12): submission 2d528b5c-7f5d-40a4-bc64-fc0141989ebb, build 1c65e8dd-9091-4c66-a1d7-7f4c3fe85cd7 for 1.0 (11) and 47ebb704-27d5-4644-8773-cf9b67b6776d for 1.0 (12), version 88ff7090-568a-4727-b19b-a8d26334725e, screenshot IDs in screenshot-upload-build12.json.
 
 The public documentation lives on remote branch codex/app-store-pages. HTML versions are also prepared under website/, but GitHub Pages is not enabled; the API token lacks Pages administration permission. The configured GitHub document URLs are live and do not depend on Pages.

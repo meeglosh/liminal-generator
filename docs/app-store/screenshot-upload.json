@@ -1,18 +1,22 @@
 {
   "01-main.png": {
-    "id": "e9046156-8abe-4a8c-84e7-08321a69382d",
+    "id": "584b5832-52c3-4d4d-b665-191bfd3ecb10",
     "uploaded": true
   },
   "02-bass.png": {
-    "id": "66b0608f-b084-48a4-bfdb-9104c7d5fd64",
+    "id": "1d6d7e8b-d948-4cc2-a131-6e7ea05fdef1",
     "uploaded": true
   },
   "03-drums.png": {
-    "id": "c955f9a8-9589-4b0c-bef2-bf8da2e26547",
+    "id": "78bbc584-69a0-4c0a-9a6b-0294609af5eb",
     "uploaded": true
   },
   "04-export.png": {
-    "id": "5bb88881-7953-4869-b7c3-47be2c269814",
+    "id": "9bae7d1a-4263-48b2-98e1-b5395cfcf095",
+    "uploaded": true
+  },
+  "05-crt-intro.png": {
+    "id": "ab8f5d7b-0a37-4d6f-bbe4-804b8b8f5476",
     "uploaded": true
   }
 }
