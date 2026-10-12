@@ -1,3 +1,20 @@
+## Current status (2026-09-18) — build 1.0.1 (15) in App Review
+- Version **1.0** is live on the App Store. **1.0.1 (15)** was submitted to App Review at 2026-09-19T01:45:26Z
+  (submission `abd340f6-5f07-4fb5-97b5-c907349fd05b`) and is **Waiting for Review**. Unlike 1.0 it uses
+  `AFTER_APPROVAL` release, so approval publishes it automatically. Nothing left to do but monitor App Store
+  Connect for reviewer questions, rejection, or approval. IDs and artifacts: `docs/app-store/README.md`.
+- Build 15 (commit `a0a34fa`, delivery/build ID `f41284dc-aba5-478b-91bb-49c35da51458`) ships everything marked
+  "unreleased after build 14" in the branch section below: the first-launch PLAY typewriter reveal and the CRT
+  power-switch click sounds. The marketing version stayed 1.0.1. **Next build number: 16**; if 1.0.1 is approved,
+  the next release needs a marketing-version bump (1.0.2 or 1.1).
+- The "open item" about stale App Store screenshots is **resolved**: commit `12a6363` recaptured them natively at
+  1320x2868 from build 15 (adds `05-crt-intro.png`), and all five are uploaded to the 1.0.1 listing
+  (IDs in `docs/app-store/screenshot-upload.json`; build-12 IDs kept in `screenshot-upload-build12.json`).
+- Still open: share-sheet preview thumbnail (build 7 fix) and general physical-device checks (audio character,
+  shader perf, haptics, tip purchases, full render/share) have not been confirmed on hardware.
+- Treat the sections below as historical detail; where they say "not yet in TestFlight" or "next build (15)",
+  that is now shipped.
+
 ## Branch `codex/ntscrt-vhs-slideshow` changes (2026-09-17) — through build 1.0.1 (14), plus unreleased items below
 - PLAY button attract pulse + first-tap placement: before the user's first tap of PLAY in a session, the
   control sits centered in the image area at 2x size, pulsing (~1.06x scale on top of that) and glowing
@@ -44,8 +61,8 @@
   pre-tap placement, the dead-CRT-glass off-state backdrop (replacing the earlier faint-radial-on-black
   treatment), the location-chip/OSD opacity sync, and the AGE default change to 0.1 — see "TestFlight build 14"
   below.
-- **Not yet in TestFlight (unreleased after build 14)** — two more features landed on this branch after build
-  14 shipped; both are targeted for the NEXT build, not 14:
+- **Shipped in build 1.0.1 (15)** (was unreleased after build 14) — two more features landed on this branch after
+  build 14 shipped and went out in build 15:
   - **First-launch PLAY typewriter reveal**: in the pre-first-tap centered/2x state, the "PLAY" label now
     types itself in character by character (~70ms/char) with a blinking `▮` cursor
     (`VHSOSDOverlay.typewriterPlayLabel`/`runIntroTypingIfNeeded` in `VHSImageCard.swift`) — the same idiom as
@@ -80,9 +97,8 @@
 - **Known test flake**: `testFullGeneratorFlow` intermittently fails with "Application
   com.gapco.LiminalGenerator is not running" after many consecutive `xcodebuild test` runs in one simulator
   session. Not a regression — clears after `xcrun simctl shutdown` + `boot` on the target simulator.
-- **Open item**: the committed App Store screenshots in `docs/app-store/screenshots/*.png` still have the old
-  right-edge smear artifact baked in (from the `maxSampleOffset` bug above) and need regenerating before any
-  store submission.
+- ~~Open item: App Store screenshots had the right-edge smear baked in~~ — resolved in `12a6363` (regenerated
+  from build 15).
 
 ## Unreleased after build 10 (2026-09-15)
 - Refined main CTA feedback with a shared native CTAPressFeedback modifier: 100ms press, 1% compression, 2pt depression, restrained glow, and transitions.dev-style 250ms ease-out return. Generate Melody/Bass/Beat, Render & Share and other deck actions share it. Reduce Motion disables transforms and interpolation. No action delays or new dependencies.
@@ -271,7 +287,7 @@ App Store Connect app id `6804471660`, app name "Liminal Generator".
   typewriter reveal and the CRT power-switch click sounds — landed on the same branch after build 14 and are
   NOT yet in TestFlight; both are targeted for the next build (15). See the branch section above for full
   detail, including the intermittent-test-failure incident their bisection uncovered and resolved.
-- OPEN: App Store screenshots under `docs/app-store/screenshots/*.png` still bake in the pre-fix right-edge
+- RESOLVED (commit 12a6363, regenerated from build 15; original note follows): App Store screenshots under `docs/app-store/screenshots/*.png` still bake in the pre-fix right-edge
   smear artifact and need regenerating before the next store submission. They also predate the CRT
   off/switch-on screen treatment and the centered/2x pre-tap PLAY placement, so they no longer represent the
   app's current look either.
@@ -374,3 +390,10 @@ the dead-CRT-glass off-state backdrop (replacing the near-black treatment), the 
 with the OSD/screen power state, and the AGE default lowered to 0.1. The marketing version stayed at **1.0.1**
 (no bump needed) — the 1.0 train only closed because 1.0 was approved/released; 1.0.1 had only been uploaded
 to TestFlight, so its train remained open. Next build number: 15.
+
+### TestFlight build 15 / App Store submission — September 18, 2026
+
+Build **1.0.1 (15)** (commit `a0a34fa`) uploaded, processed VALID, and selected for App Store version 1.0.1, which
+was submitted for review (Waiting for Review) with `AFTER_APPROVAL` release. Includes the PLAY typewriter intro
+and CRT power-switch clicks. Five build-15 screenshots replaced the build-12 set. Details and IDs:
+`docs/app-store/README.md`. Next build number: 16.
