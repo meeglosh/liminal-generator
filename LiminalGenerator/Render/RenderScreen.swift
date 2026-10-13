@@ -15,6 +15,7 @@
 
 import SwiftUI
 import UIKit
+import StoreKit
 
 // MARK: - View model
 
@@ -163,8 +164,12 @@ final class RenderViewModel: ObservableObject {
 struct RenderScreen: View {
     @StateObject private var viewModel: RenderViewModel
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.requestReview) private var requestReview
 
     @State private var showTipJar = false
+    /// Set when the share sheet reports a completed (not cancelled) share;
+    /// consumed in the sheet's onDismiss to ask for an App Store review once.
+    @State private var shareCompleted = false
     @State private var cursorOn = true
     @State private var spinnerIndex = 0
     private let spinnerFrames = ["\\", "|", "/", "-"]
@@ -195,11 +200,28 @@ struct RenderScreen: View {
         .sheet(isPresented: $showTipJar) {
             TipJarSheet()
         }
-        .sheet(isPresented: $viewModel.showShareSheet) {
+        .sheet(isPresented: $viewModel.showShareSheet, onDismiss: requestReviewIfFirstShare) {
             if case .complete(let url) = viewModel.stage {
-                ShareSheet(items: [VideoShareItem(url: url, thumbnail: viewModel.shareThumbnail)])
+                ShareSheet(items: [VideoShareItem(url: url, thumbnail: viewModel.shareThumbnail)],
+                           onCompletion: { if $0 { shareCompleted = true } })
             }
         }
+    }
+
+    /// One-time App Store review prompt, after the first successful render AND
+    /// completed share (sheet dismissed, DONE/RE-SHARE screen showing). Never
+    /// on a cancelled share; persisted so it is only ever requested once
+    /// (Apple also rate-limits). Skipped in UI tests (`LG_RENDER_SECONDS`).
+    private func requestReviewIfFirstShare() {
+        guard shareCompleted else { return }
+        shareCompleted = false
+        #if DEBUG
+        if ProcessInfo.processInfo.environment["LG_RENDER_SECONDS"] != nil { return }
+        #endif
+        let key = "hasRequestedReview"
+        guard !UserDefaults.standard.bool(forKey: key) else { return }
+        UserDefaults.standard.set(true, forKey: key)
+        requestReview()
     }
 
     @ViewBuilder

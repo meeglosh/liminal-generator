@@ -545,3 +545,10 @@ click duration is ~65ms (ON) / ~22ms (OFF); as measured, ON peaks around 0.68 an
   the engine's real idle/pause/interruption behavior against production code. They're compiled out of Release
   builds and exist purely as test scaffolding — deliberately NOT added to the "Pinned API contract" section's
   code block above, which pins the cross-agent build surface, not test-only introspection.
+
+## One-time review prompt (2026-10-12, build 16)
+`RenderScreen` calls StoreKit `requestReview` (SwiftUI `@Environment(\.requestReview)`) at most once per install: when the share
+sheet is dismissed after the user's first *completed* share (`UIActivityViewController` `completed == true`; a cancelled share never
+counts), i.e. as the DONE / RE-SHARE screen is showing. Never on launch or during playback. The `hasRequestedReview` UserDefaults flag
+is set when it fires, so it is not asked again (Apple additionally rate-limits). Debug builds skip it when `LG_RENDER_SECONDS` is set
+(the UI-test launch environment) so the system dialog cannot block XCUITest.

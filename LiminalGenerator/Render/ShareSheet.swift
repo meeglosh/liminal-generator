@@ -35,10 +35,14 @@ private let shareDebugLog = Logger(subsystem: "com.gapco.LiminalGenerator", cate
 struct ShareSheet: UIViewControllerRepresentable {
     let items: [Any]
     var onDismiss: (() -> Void)?
+    /// Called (before `onDismiss`) with whether the user actually completed
+    /// a share action; false when the sheet was cancelled.
+    var onCompletion: ((Bool) -> Void)?
 
     func makeUIViewController(context: Context) -> UIActivityViewController {
         let controller = UIActivityViewController(activityItems: items, applicationActivities: nil)
-        controller.completionWithItemsHandler = { _, _, _, _ in
+        controller.completionWithItemsHandler = { _, completed, _, _ in
+            onCompletion?(completed)
             onDismiss?()
         }
         if let popover = controller.popoverPresentationController {

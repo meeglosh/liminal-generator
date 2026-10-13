@@ -3,6 +3,7 @@
 - Draft version **1.0.2** exists in App Store Connect (`0e845e17-085e-46d1-a25a-74f1f56db82d`) with new ASO keywords, promo text and
   captioned screenshots, but no build. Plan, rationale and IDs: `docs/app-store/ASO.md`, `docs/app-store/README.md`.
 - Build 16 (marketing 1.0.2) is the next build; planned to include a one-time `requestReview` prompt after the first completed render+share.
+- Build 16 (1.0.2) is prepared in code (not uploaded): Info.plist bumped; `RenderScreen.requestReviewIfFirstShare` fires `requestReview` once (UserDefaults `hasRequestedReview`) when the share sheet is dismissed after a completed share; skipped in DEBUG when `LG_RENDER_SECONDS` is set. See SPEC.md.
 - Not done: App Preview video, Spanish/UK localizations, What's New text for 1.0.2.
 - The "in App Review" status in the next section is superseded.
 
