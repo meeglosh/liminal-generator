@@ -1,6 +1,13 @@
-# App Store preparation — 1.0.1 (15)
+# App Store preparation — 1.0.2 (in progress), 1.0.1 (15) live
 
-Updated September 18, 2026. Version 1.0.1 build 15 was submitted to App Review at 01:45:26 UTC on September 19, 2026. The submission is **Waiting for Review**. Version 1.0 is live on the App Store; 1.0.1 is an update and will publish **automatically** once Apple approves it.
+## Update — October 12, 2026
+- Version **1.0.1 (15) is live** (App Store Connect state READY_FOR_SALE).
+- Promotional text set on the live 1.0.1 listing (editable without review).
+- Version **1.0.2** created (id 0e845e17-085e-46d1-a25a-74f1f56db82d, PREPARE_FOR_SUBMISSION, AFTER_APPROVAL release, en-US localization 07e5c51b-6e4e-4eee-b03b-9f8f477ca186). It has the new keyword field (`keywords-proposed.txt`), the promotional text, and five captioned screenshots (`screenshots-captioned/`, IDs in `screenshot-upload-1.0.2.json`, set 3bc18122-f8d2-4a34-8d70-2867fb4ed276). It has **no build selected and no What's New text yet**, so it cannot be submitted. Rationale and the rest of the plan: `ASO.md`.
+
+## 1.0.1 (15) record (September 18, 2026)
+
+Updated September 18, 2026. Version 1.0.1 build 15 was submitted to App Review at 01:45:26 UTC on September 19, 2026. At the time it was Waiting for Review; it has since been approved and released. Version 1.0 is live on the App Store; 1.0.1 is an update and will publish **automatically** once Apple approves it.
 
 ## Completed
 

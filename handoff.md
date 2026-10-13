@@ -1,4 +1,12 @@
-## Current status (2026-09-18) — build 1.0.1 (15) in App Review
+## Update (2026-10-12) — ASO work, 1.0.2 draft
+- 1.0.1 (15) is approved and live (READY_FOR_SALE). Promotional text set on it.
+- Draft version **1.0.2** exists in App Store Connect (`0e845e17-085e-46d1-a25a-74f1f56db82d`) with new ASO keywords, promo text and
+  captioned screenshots, but no build. Plan, rationale and IDs: `docs/app-store/ASO.md`, `docs/app-store/README.md`.
+- Build 16 (marketing 1.0.2) is the next build; planned to include a one-time `requestReview` prompt after the first completed render+share.
+- Not done: App Preview video, Spanish/UK localizations, What's New text for 1.0.2.
+- The "in App Review" status in the next section is superseded.
+
+## Status as of 2026-09-18 — build 1.0.1 (15) in App Review (superseded: now live)
 - Version **1.0** is live on the App Store. **1.0.1 (15)** was submitted to App Review at 2026-09-19T01:45:26Z
   (submission `abd340f6-5f07-4fb5-97b5-c907349fd05b`) and is **Waiting for Review**. Unlike 1.0 it uses
   `AFTER_APPROVAL` release, so approval publishes it automatically. Nothing left to do but monitor App Store
