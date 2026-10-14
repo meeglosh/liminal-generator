@@ -94,11 +94,11 @@ struct MainView: View {
             Button {
                 showAbout = true
             } label: {
-                Image(systemName: "gearshape")
+                Image(systemName: "info.circle")
                     .font(.system(size: 18))
                     .foregroundColor(.liminalOnSurfaceVariant)
             }
-            .accessibilityLabel("About and support")
+            .accessibilityLabel("About")
             .accessibilityIdentifier("aboutButton")
         }
         .padding(.horizontal, LiminalMetrics.marginMobile)

@@ -24,8 +24,7 @@ over swipeable VHS-filtered images of empty spaces, and renders shareable 2-minu
 ## Screens & behavior
 1. **Splash**: show the VHS-tape splash for two seconds, then fade into the idle main screen over 0.4 seconds.
 2. **Main** (single scrollable card stack):
-   - Header: dithered glyph + "LIMINAL GENERATOR", settings gear (gear can be non-functional placeholder or
-     minimal about sheet).
+   - Header: dithered glyph + "LIMINAL GENERATOR", info (i) button (opens a minimal About sheet).
    - **VHS image card**: shows current library image (1:1 square, all 23 bundled images cropped square) with
      live VHS filter (see below). Swipe left/right pages through the library (wraps around, random start
      index) — only while the CRT is "on" (see below). PLAY ▶ / PAUSE toggle overlaid bottom-left. OSD overlay:

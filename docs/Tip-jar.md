@@ -1,6 +1,6 @@
 # Optional native tip jar
 
-Open the gear (**About and support**) to find **Support Liminal Generator**. All features remain free. Tips are repeatable, one-time consumables; they grant no features, credits, subscriptions or permanent entitlements. There is no restore button because these consumables have nothing to restore.
+Tap the info (i) button in the header (**About**) to find **Support Liminal Generator**. All features remain free. Tips are repeatable, one-time consumables; they grant no features, credits, subscriptions or permanent entitlements. There is no restore button because these consumables have nothing to restore.
 
 ## App Store Connect products
 
