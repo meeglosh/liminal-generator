@@ -82,3 +82,8 @@ first completed render and share (a success moment), never on launch. Apple limi
    screenshots, review prompt, add Spanish/UK localizations.
 3. In parallel: record an App Preview video and start posting rendered clips.
 4. After 2 to 4 weeks: read Search analytics and iterate on keywords.
+
+## Applied 2026-10-14
+- en-US description on draft 1.0.2 now opens with "Free. No account. No ads." (see `description.txt`).
+- es-MX added to draft 1.0.2: description, keywords (`relajante,estudiar,dormir,calma,concentracion,retro,vintage,nostalgia,sintetizador,lofi,atmosferico`, 99 chars), promotional text, and subtitle "Música ambiental y video VHS" (app-info localization d39527ec-aa6f-41d3-9b0c-5d45e3602f19). Version localization 690f1628-ef51-433f-86f2-2311bb836dad. Spanish copy is machine-written and has not been reviewed by a native speaker.
+- Still missing on 1.0.2: What's New (en-US and es-MX), a build, and updated screenshots (current ones show the old gear icon).
