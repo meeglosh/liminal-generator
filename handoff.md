@@ -1,9 +1,49 @@
-## Update (2026-10-15) — Localization for 1.1 (branch `codex/localization-1.1`, NOT in App Review build 17)
-UI is localized into es, pt-BR, fr, de, ja via `LiminalGenerator/Resources/Localizable.xcstrings`, plus an
-in-app language picker in the About sheet (`App/LanguageManager.swift`). Everything is localized except the
-app name. See SPEC.md "Localization" for setup, how to add a string/language, and the checks
-(`python3 tests/check-localization.py`, `LanguagePickerTests`, opt-in `LocalizationScreenshotTests`).
-Watermark glow in rendered video halved. Screenshots: `docs/localization/<lang>/`.
+## RESUME HERE (2026-10-15) — status when the Mac was rebooted
+**App Store:** version **1.0.2 (build 17)** was submitted to App Review 2026-10-15T14:04Z (submission
+`62c131bc-1fb1-4db0-962e-10406afecf38`), state WAITING_FOR_REVIEW, release AFTER_APPROVAL. It contains the info (i)
+icon (replaced the gear), the one-time review prompt, new ASO keywords/promo text/description, captioned
+screenshots, and en-US + es-MX listing text. Branch `codex/ntscrt-vhs-slideshow` (pushed, head `f5e8f53`) matches it.
+Next step there: monitor App Store Connect for review feedback/approval. IDs and history: `docs/app-store/README.md`,
+`docs/app-store/ASO.md`. ASC API access: key U2X2ZXV4FF (see Release section); helper scripts lived in the
+Claude session scratchpad and are NOT in the repo.
+
+**Localization for 1.1 — branch `codex/localization-1.1` (pushed; branched from `f5e8f53`; NOT in build 17).**
+Built but UNVERIFIED AT RUNTIME. Contents:
+- `LiminalGenerator/Resources/Localizable.xcstrings`: 151 keys x es, pt-BR, fr, de, ja (+4 numeral keys not translated).
+  Everything localized except the app name "Liminal Generator" and the "LIMINAL GENERATOR" watermark (owner decision),
+  including the VCR OSD and text baked into rendered videos.
+- In-app language dropdown in the About sheet (`App/LanguageManager.swift`, `accessibilityIdentifier("languagePicker")`,
+  UserDefaults key `appLanguage`, DEBUG env `LG_RESET_LANGUAGE=1` clears it). Share sheet, StoreKit sheets, review
+  prompt and the name under the icon stay in the device language.
+- Japanese uses a Space Mono -> Hiragino Sans cascade (`UIFont.liminalMono`), proportional so not strictly monospaced.
+- Watermark glow in rendered video halved: blur 0.014w->0.007w AND alpha 0.85->0.425 (stronger than a 50% cut on one;
+  restore alpha to 0.85 if too faint). `docs/watermark-glow/wm_*.png` are a CoreGraphics reproduction, not real render frames.
+- Checks that passed: app builds; `python3 tests/check-localization.py --extracted <DerivedData Objects-normal/arm64>`
+  (0 problems); `python3 tests/run-drum-break-tests.py`; locale-override string lookup script.
+- NOT verified (simulator was down): UI suite has never passed on this branch (the one run at 2f811c9 had 2 timeouts,
+  cause unproven; if they recur, run the same tests on `f5e8f53` to separate regression from environment),
+  `LanguagePickerTests`, live language switching, TipStoreTests under the StoreKit scheme, layout in all 5 languages,
+  Japanese font in SwiftUI and video, per-language screenshots (`docs/localization/<lang>/` does NOT exist yet),
+  an 8-second render frame grab. Layout risks to check first: STATUS line vs filename (pt-BR, de), long PLAY word at 2x
+  (de/es/pt-BR), location chips, splash status lines (fr/de), long GENERATE buttons.
+- Translations are machine-written; needs native review. Least confident: DSP labels (REV_DECAY, WOW_FLUTTER,
+  BBD_CHORUS), REC/SP, drum-loop names (GRIT/HAZY/DUSTY), shortened location names, tip wording (pt-BR "ME PAGUE UM
+  CAFÉ", fr "OFFREZ-MOI UN CAFÉ"), "System Default" labels.
+
+**Simulator outage:** CoreSimulatorService crashed (SIGABRT in `loadAllBundlesWithError:`) on every boot from ~10:22 on
+2026-10-15, across iOS 26.4/26.5/27.0 devices; cause unknown (an iOS 27.0 runtime was mounted ~10:31). The Mac was
+rebooted afterwards. A subagent ran `simctl shutdown all` and force-killed CoreSimulatorService while debugging.
+
+**To resume after reboot** (target device `id=0A5E30AF-39AD-41A6-BCC3-53F214D39071`, iPhone 17 Pro 26.5):
+1. `git checkout codex/localization-1.1`; confirm `xcrun simctl list devices booted` works and a device boots.
+2. English suite: `xcodebuild -project LiminalGenerator.xcodeproj -scheme "Liminal Generator" -destination 'id=0A5E30AF-39AD-41A6-BCC3-53F214D39071' test`
+   (includes `LanguagePickerTests`), then the StoreKit scheme "Liminal Generator StoreKit" for TipStoreTests.
+3. Screenshots per language: `TEST_RUNNER_LG_SHOT_LANG=de TEST_RUNNER_LG_SHOT_DIR=$PWD/docs/localization/de xcodebuild test ... -only-testing:LiminalGeneratorUITests/LocalizationScreenshotTests`
+   for es, pt-BR, fr, de, ja; read them and fix truncation/overlap. The open-menu shot step (05b) is untested.
+4. Watermark: build `594c09c` (before) vs `af2411c` (after) with `SIMCTL_CHILD_LG_AUTORENDER=1 SIMCTL_CHILD_LG_RENDER_SECONDS=8 xcrun simctl launch --console-pty booted com.gapco.LiminalGenerator`, frame-grab with ffmpeg, compare readability.
+5. Then: native-speaker review of translations; localized listing text + screenshots for each language in ASC (version 1.1);
+   bump to 1.1 (build 18+) per the Release section; do NOT upload or submit without the owner's go-ahead.
+Owner preference: orchestrate Sonnet subagents rather than writing app code directly; ask before submitting/uploading.
 
 ## Update (2026-10-12) — ASO work, 1.0.2 draft
 - 1.0.1 (15) is approved and live (READY_FOR_SALE). Promotional text set on it.
