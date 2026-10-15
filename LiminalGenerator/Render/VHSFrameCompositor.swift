@@ -570,8 +570,11 @@ final class VHSFrameCompositor: @unchecked Sendable {
             let measured = str.size()
             let origin = CGPoint(x: size.width - margin - measured.width, y: size.height - margin - measured.height)
 
+            // Glow deliberately weaker than the OSD's (blur 0.014w / alpha
+            // 0.85) so the baked watermark stays crisp: radius and alpha both
+            // halved (0.007w / 0.425).
             cg.saveGState()
-            cg.setShadow(offset: .zero, blur: size.width * 0.014, color: color.withAlphaComponent(0.85).cgColor)
+            cg.setShadow(offset: .zero, blur: size.width * 0.007, color: color.withAlphaComponent(0.425).cgColor)
             str.draw(at: origin)
             cg.restoreGState()
         }
