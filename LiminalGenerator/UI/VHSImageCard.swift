@@ -318,7 +318,9 @@ private struct VHSOSDOverlay: View {
     /// `.accessibilityLabel`.
     private var typewriterPlayLabel: some View {
         let word = playWord
-        let revealed = String(word.prefix(introTypedCount))
+        // Once the intro is complete show the whole word, so a live language
+        // switch (word length changes) never leaves a stale truncated label.
+        let revealed = introComplete ? word : String(word.prefix(introTypedCount))
         let cursor = introTyping ? (blinkOn ? "\u{25AE}" : " ") : " "
         return ZStack(alignment: .leading) {
             osdText(word + "\u{25AE}", size: 16, weight: .bold)
