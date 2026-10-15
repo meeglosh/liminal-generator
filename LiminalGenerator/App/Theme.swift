@@ -79,12 +79,7 @@ extension Font {
     /// font. Register `Space Mono` / `Space Mono Bold` via UIAppFonts in
     /// Info.plist for the bundled path to succeed.
     static func spaceMono(size: CGFloat, weight: Font.Weight = .regular) -> Font {
-        let familyName = weight == .bold ? "Space Mono Bold" : "Space Mono"
-        if UIFont.fontNames(forFamilyName: "Space Mono").isEmpty
-            && UIFont(name: familyName, size: size) == nil {
-            return .system(size: size, weight: weight, design: .monospaced)
-        }
-        return .custom(familyName, size: size)
+        Font(UIFont.liminalMono(size: size, bold: weight == .bold, scaled: true))
     }
 }
 
@@ -103,4 +98,23 @@ enum LiminalMetrics {
     static let stackSmall: CGFloat = 8
     static let stackMedium: CGFloat = 16
     static let stackLarge: CGFloat = 32
+}
+
+// MARK: - UIFont (shared by SwiftUI and the rendered-video OSD)
+
+extension UIFont {
+    /// Space Mono with a deliberate fallback chain: Latin/numerals come from
+    /// Space Mono (it has no CJK glyphs); Japanese kana/kanji fall through to
+    /// Hiragino Sans (matching weight), so Japanese text always uses Japanese
+    /// glyph forms regardless of the device language. Used both for SwiftUI
+    /// (`Font.spaceMono`) and for text baked into rendered videos.
+    static func liminalMono(size: CGFloat, bold: Bool, scaled: Bool = false) -> UIFont {
+        let base = UIFont(name: bold ? "SpaceMono-Bold" : "SpaceMono-Regular", size: size)
+            ?? UIFont.monospacedSystemFont(ofSize: size, weight: bold ? .bold : .regular)
+        let cascadeName = bold ? "HiraginoSans-W6" : "HiraginoSans-W3"
+        let cascade = UIFontDescriptor(fontAttributes: [.name: cascadeName])
+        let descriptor = base.fontDescriptor.addingAttributes([.cascadeList: [cascade]])
+        let font = UIFont(descriptor: descriptor, size: size)
+        return scaled ? UIFontMetrics(forTextStyle: .body).scaledFont(for: font) : font
+    }
 }

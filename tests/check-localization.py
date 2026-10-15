@@ -6,7 +6,9 @@ Usage:
   python3 tests/check-localization.py --extracted DIR # also compare against the
       compiler-extracted keys (*.stringsdata under DIR, e.g. the app target's
       DerivedData Objects-normal/arm64 folder) so a new Text("...") /
-      String(localized:) that nobody added to the catalog is caught too.
+      LocalizedStringResource literal that nobody added to the catalog is
+      caught too. (Dynamic keys such as drum-loop names are looked up by
+      value and are not extractable; they live in the catalog by hand.)
 
 Checks, for every key in LiminalGenerator/Resources/Localizable.xcstrings
 whose entry does not set "shouldTranslate": false:
@@ -72,8 +74,6 @@ def main():
                 found.add(item["key"])
         for key in sorted(found - set(cat["strings"])):
             errors.append(f"extracted from code but not in catalog: {key!r}")
-        for key in sorted(set(cat["strings"]) - found):
-            errors.append(f"in catalog but not used by code (stale): {key!r}")
 
     for e in errors:
         print("FAIL:", e)

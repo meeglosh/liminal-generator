@@ -58,7 +58,7 @@ struct DeckButtonStyle: ButtonStyle {
 
 /// "⚄ GENERATE MELODY" / "⚄ GENERATE BEAT" style deck button with haptic tap.
 struct DiceDeckButton: View {
-    let title: LocalizedStringResource
+    let title: LocalizedStringKey
     let action: () -> Void
 
     var body: some View {
@@ -69,7 +69,7 @@ struct DiceDeckButton: View {
             HStack(spacing: 8) {
                 Image(systemName: "dice")
                     .accessibilityHidden(true)
-                Text(String(localized: title).uppercased())
+                Text(title).textCase(.uppercase)
             }
         }
         .buttonStyle(DeckButtonStyle())
@@ -279,10 +279,10 @@ private final class DirectionalPanGestureRecognizer: UIPanGestureRecognizer {
 /// A slider row with a left label + right sub-label above it, and endpoint
 /// readouts flanking the track (matches GLOBAL ENV / DRUMS LEVEL rows).
 struct LiminalSliderRow: View {
-    let label: LocalizedStringResource
-    let subLabel: LocalizedStringResource?
-    let leftEndpoint: String
-    let rightEndpoint: String
+    let label: LocalizedStringKey
+    let subLabel: LocalizedStringKey?
+    let leftEndpoint: LocalizedStringKey
+    let rightEndpoint: LocalizedStringKey
     @Binding var value: Float
     /// Optional UI-test hook forwarded to the inner `LiminalSlider`'s
     /// accessibility identifier (this component is reused for SPACE, AGE,
@@ -292,13 +292,13 @@ struct LiminalSliderRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .lastTextBaseline) {
-                Text(String(localized: label).uppercased())
+                Text(label).textCase(.uppercase)
                     .font(.spaceMono(size: 12))
                     .tracking(1)
                     .foregroundColor(.liminalCRTGreenDim)
                 if let subLabel {
                     Spacer()
-                    Text(String(localized: subLabel).uppercased())
+                    Text(subLabel).textCase(.uppercase)
                         .font(.spaceMono(size: 10))
                         .tracking(1)
                         .foregroundColor(.liminalOnSurfaceVariant)
@@ -357,7 +357,7 @@ struct LiminalToggle: View {
 /// Sharp-edged card container with a labeled "tape spine" header, per
 /// DESIGN.md ("Cards (VCR Static)").
 struct LiminalCard<Content: View>: View {
-    let title: LocalizedStringResource
+    let title: LocalizedStringKey
     @ViewBuilder var content: () -> Content
 
     var body: some View {
@@ -369,7 +369,7 @@ struct LiminalCard<Content: View>: View {
         .background(Color.liminalSurfaceContainer)
         .overlay(Rectangle().stroke(Color.liminalOutlineVariant, lineWidth: 1))
         .overlay(alignment: .topLeading) {
-            Text(String(localized: title).uppercased())
+            Text(title).textCase(.uppercase)
                 .font(.spaceMono(size: 12))
                 .tracking(3)
                 .foregroundColor(.liminalOnSurfaceVariant)
@@ -383,10 +383,7 @@ struct LiminalCard<Content: View>: View {
 // MARK: - Thin outlined chip
 
 struct LiminalChip: View {
-    /// Already-resolved display text. Callers pass either a verbatim
-    /// string (waveform names, which stay English) or
-    /// `String(localized:)` (image location names).
-    let text: String
+    let text: LocalizedStringKey
     /// When true, renders filled with CRT green (selected state) instead of
     /// the default thin-outline/dim-text look. Purely visual — this struct
     /// stays a static label; `LiminalSelectableChip` below wraps it in a
@@ -396,7 +393,7 @@ struct LiminalChip: View {
     var fillsWidth: Bool = false
 
     var body: some View {
-        Text(text.uppercased())
+        Text(text).textCase(.uppercase)
             .font(.spaceMono(size: 10))
             .tracking(1.5)
             .lineLimit(1)
@@ -414,7 +411,7 @@ struct LiminalChip: View {
 /// haptic (matching `LiminalToggle`'s pattern) then `action`. Used for the
 /// SYNTH card's waveform row (SINE/TRIANGLE/SQUARE/SAW).
 struct LiminalSelectableChip: View {
-    let text: String
+    let text: LocalizedStringKey
     let isSelected: Bool
     let action: () -> Void
 
@@ -473,5 +470,19 @@ struct LiminalAccordionBody<Content: View>: View {
             .allowsHitTesting(isExpanded)
             .accessibilityHidden(!isExpanded)
             .animation(reduceMotion ? nil : .timingCurve(0.22, 1, 0.36, 1, duration: 0.25), value: isExpanded)
+    }
+}
+
+// MARK: - Waveform labels
+
+extension LiminalWaveform {
+    /// Localized chip label (shown uppercased).
+    var displayKey: LocalizedStringKey {
+        switch self {
+        case .sine: return "SINE"
+        case .triangle: return "TRIANGLE"
+        case .square: return "SQUARE"
+        case .saw: return "SAW"
+        }
     }
 }

@@ -1,3 +1,10 @@
+## Update (2026-10-15) — Localization for 1.1 (branch `codex/localization-1.1`, NOT in App Review build 17)
+UI is localized into es, pt-BR, fr, de, ja via `LiminalGenerator/Resources/Localizable.xcstrings`, plus an
+in-app language picker in the About sheet (`App/LanguageManager.swift`). Everything is localized except the
+app name. See SPEC.md "Localization" for setup, how to add a string/language, and the checks
+(`python3 tests/check-localization.py`, `LanguagePickerTests`, opt-in `LocalizationScreenshotTests`).
+Watermark glow in rendered video halved. Screenshots: `docs/localization/<lang>/`.
+
 ## Update (2026-10-12) — ASO work, 1.0.2 draft
 - 1.0.1 (15) is approved and live (READY_FOR_SALE). Promotional text set on it.
 - Draft version **1.0.2** exists in App Store Connect (`0e845e17-085e-46d1-a25a-74f1f56db82d`) with new ASO keywords, promo text and

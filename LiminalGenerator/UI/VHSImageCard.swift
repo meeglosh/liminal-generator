@@ -171,7 +171,15 @@ private struct VHSOSDOverlay: View {
     /// half a second once it starts.
     private let introMsPerChar: Double = 70
 
+    /// Read in `body` so a live in-app language switch re-evaluates the
+    /// code-built OSD strings (timestamp month/AM-PM, typed PLAY word).
+    @Environment(\.locale) private var locale
+
+    /// The localized word the intro types out (and the play label shows).
+    private var playWord: String { tr("PLAY") }
+
     var body: some View {
+        let _ = locale
         ZStack {
             // Top-left: timestamp + REC
             VStack(alignment: .leading, spacing: 2) {
@@ -181,7 +189,7 @@ private struct VHSOSDOverlay: View {
                         .fill(Color.red)
                         .frame(width: 8, height: 8)
                         .opacity(recOpacity)
-                    osdText("REC", color: .liminalError)
+                    osdKey("REC", color: .liminalError)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -189,7 +197,7 @@ private struct VHSOSDOverlay: View {
             .opacity(showInfo ? 1 : 0)
 
             // Top-right: SP
-            osdText("SP")
+            osdKey("SP")
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
                 .padding(12)
                 .opacity(showInfo ? 1 : 0)
@@ -291,7 +299,7 @@ private struct VHSOSDOverlay: View {
     @ViewBuilder
     private var playLabel: some View {
         if hasTappedPlay {
-            osdText(isPlaying ? "PAUSE" : "PLAY", size: 16, weight: .bold)
+            osdKey(isPlaying ? "PAUSE" : "PLAY", size: 16, weight: .bold)
                 .contentTransition(.identity)
         } else {
             typewriterPlayLabel
@@ -309,10 +317,11 @@ private struct VHSOSDOverlay: View {
     /// second, duplicate accessibility element alongside the button's own
     /// `.accessibilityLabel`.
     private var typewriterPlayLabel: some View {
-        let revealed = String("PLAY".prefix(introTypedCount))
+        let word = playWord
+        let revealed = String(word.prefix(introTypedCount))
         let cursor = introTyping ? (blinkOn ? "\u{25AE}" : " ") : " "
         return ZStack(alignment: .leading) {
-            osdText("PLAY\u{25AE}", size: 16, weight: .bold)
+            osdText(word + "\u{25AE}", size: 16, weight: .bold)
                 .opacity(0)
                 .accessibilityHidden(true)
             osdText(revealed + cursor, size: 16, weight: .bold)
@@ -340,7 +349,7 @@ private struct VHSOSDOverlay: View {
             // branch above would already be in control and none of this
             // would be visible regardless.)
             introStarted = true
-            introTypedCount = 4
+            introTypedCount = playWord.count
             introComplete = true
             return
         }
@@ -349,7 +358,7 @@ private struct VHSOSDOverlay: View {
         introStarted = true
 
         introTyping = true
-        for count in 1...4 {
+        for count in 1...max(1, playWord.count) {
             try? await Task.sleep(for: .milliseconds(introMsPerChar))
             // Bail immediately if the user tapped PLAY mid-reveal: `playLabel`
             // switches to the plain instant label the moment `hasTappedPlay`
@@ -420,6 +429,15 @@ private struct VHSOSDOverlay: View {
     private var recOpacity: Double {
         guard isPlaying else { return 0.35 }
         return blinkOn ? 1.0 : 0.2
+    }
+
+    private func osdKey(_ key: LocalizedStringKey, color: Color = .liminalPrimary, size: CGFloat = 12, weight: Font.Weight = .regular) -> some View {
+        Text(key)
+            .font(.spaceMono(size: size, weight: weight))
+            .tracking(1)
+            .foregroundColor(color)
+            .shadow(color: color.opacity(0.85), radius: 4)
+            .shadow(color: .black.opacity(0.6), radius: 1, x: 1, y: 1)
     }
 
     private func osdText(_ text: String, color: Color = .liminalPrimary, size: CGFloat = 12, weight: Font.Weight = .regular) -> some View {

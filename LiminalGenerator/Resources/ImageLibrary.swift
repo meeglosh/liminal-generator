@@ -41,7 +41,7 @@
 //  to the asset catalog as liminal_24.
 //
 
-import Foundation
+import SwiftUI
 
 /// A single entry in the bundled liminal-space image library.
 struct LiminalImage: Identifiable {
@@ -50,7 +50,7 @@ struct LiminalImage: Identifiable {
     /// Name of the imageset in Assets.xcassets.
     let assetName: String
     /// Short, human-readable, uppercase location name for the OSD / UI.
-    let locationName: LocalizedStringResource
+    let locationName: LocalizedStringKey
 }
 
 /// Static manifest of every image bundled in Assets.xcassets.

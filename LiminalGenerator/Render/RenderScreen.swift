@@ -21,9 +21,11 @@ import StoreKit
 
 @MainActor
 final class RenderViewModel: ObservableObject {
-    struct LogLine: Identifiable, Equatable {
+    struct LogLine: Identifiable {
         let id: String
-        var text: String
+        /// Kept as a key (not a resolved string) so the log re-localizes
+        /// live if the in-app language changes while it is on screen.
+        var text: LocalizedStringKey
     }
 
     enum Stage: Equatable {
@@ -96,7 +98,7 @@ final class RenderViewModel: ObservableObject {
                 Task { @MainActor in self?.apply(event) }
             }
             guard !Task.isCancelled else { return }
-            setLine(key: "captured", text: String(localized: "> SIGNAL CAPTURED [OK]"))
+            setLine(key: "captured", text: "> SIGNAL CAPTURED [OK]")
             overallProgress = 1
             stage = .complete(url)
 
@@ -116,8 +118,9 @@ final class RenderViewModel: ObservableObject {
             // cleanup (partial file removal) already happened inside
             // ClipRenderer.
         } catch {
-            setLine(key: "error", text: String(localized: "> ERROR: \((error as? LocalizedError)?.errorDescription ?? "\(error)")"))
-            stage = .failed((error as? LocalizedError)?.errorDescription ?? "\(error)")
+            let errorText = (error as? LocalizedError)?.errorDescription ?? "\(error)"
+            setLine(key: "error", text: "> ERROR: \(errorText)")
+            stage = .failed(errorText)
         }
     }
 
@@ -125,31 +128,31 @@ final class RenderViewModel: ObservableObject {
         guard case .encoding = stage else { return }
         switch event.phase {
         case .tracking:
-            setLine(key: "tracking", text: String(localized: "> TRACKING... [OK]"))
+            setLine(key: "tracking", text: "> TRACKING... [OK]")
             overallProgress = max(overallProgress, 0.02)
         case .syncPulse:
-            setLine(key: "sync", text: String(localized: "> SYNC PULSE... [LOCKED]"))
+            setLine(key: "sync", text: "> SYNC PULSE... [LOCKED]")
             overallProgress = max(overallProgress, 0.05)
         case .buffering(let fraction):
             let pct = Int((fraction * 100).rounded())
-            setLine(key: "buffer", text: String(localized: "> BUFFER... \(pct)%"))
+            setLine(key: "buffer", text: "> BUFFER... \(pct)%")
             overallProgress = max(overallProgress, 0.05 + fraction * 0.35)
         case .audioComplete:
-            setLine(key: "buffer", text: String(localized: "> BUFFER... \(100)%"))
-            setLine(key: "audio", text: String(localized: "> AUDIO PASS... [OK]"))
+            setLine(key: "buffer", text: "> BUFFER... \(100)%")
+            setLine(key: "audio", text: "> AUDIO PASS... [OK]")
             overallProgress = max(overallProgress, 0.40)
         case .video(let fraction):
             let pct = Int((fraction * 100).rounded())
-            setLine(key: "video", text: String(localized: "> VIDEO PASS... \(pct)%"))
+            setLine(key: "video", text: "> VIDEO PASS... \(pct)%")
             overallProgress = max(overallProgress, 0.40 + fraction * 0.53)
         case .muxing:
-            setLine(key: "video", text: String(localized: "> VIDEO PASS... \(100)%"))
-            setLine(key: "mux", text: String(localized: "> MUX... [OK]"))
+            setLine(key: "video", text: "> VIDEO PASS... \(100)%")
+            setLine(key: "mux", text: "> MUX... [OK]")
             overallProgress = max(overallProgress, 0.97)
         }
     }
 
-    private func setLine(key: String, text: String) {
+    private func setLine(key: String, text: LocalizedStringKey) {
         if let idx = lineIndex[key] {
             logLines[idx].text = text
         } else {
@@ -273,9 +276,9 @@ struct RenderScreen: View {
 
     private var srcDestRow: some View {
         HStack {
-            Text(verbatim: "SRC: VTR_01")
+            Text("SRC: VTR_01")
             Spacer()
-            Text(verbatim: "DEST: MEMORY")
+            Text("DEST: MEMORY")
         }
         .font(.spaceMono(size: 11))
         .tracking(1)
@@ -290,7 +293,7 @@ struct RenderScreen: View {
                     .fill(Color.liminalCRTGreenDim.opacity(0.85))
                     .frame(width: max(0, geo.size.width * CGFloat(viewModel.overallProgress)))
                     .animation(.linear(duration: 0.15), value: viewModel.overallProgress)
-                Text(verbatim: "REC \(spinnerFrames[spinnerIndex]) ///")
+                Text("REC \(spinnerFrames[spinnerIndex]) ///")
                     .font(.spaceMono(size: 12, weight: .bold))
                     .tracking(2)
                     .foregroundColor(.white)
@@ -306,7 +309,7 @@ struct RenderScreen: View {
     private func logList(color: Color) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             ForEach(viewModel.logLines) { line in
-                Text(verbatim: line.text)
+                Text(line.text)
                     .foregroundColor(line.id == "error" ? .liminalGlitchMagenta : color)
             }
         }

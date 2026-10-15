@@ -37,6 +37,26 @@
         }
       }
     },
+    "+6dB": {
+      "comment": "Numeric/dB slider endpoint",
+      "extractionState": "manual",
+      "shouldTranslate": false
+    },
+    "-INF": {
+      "comment": "Numeric/dB slider endpoint (minus infinity)",
+      "extractionState": "manual",
+      "shouldTranslate": false
+    },
+    "0": {
+      "comment": "Numeric slider endpoint",
+      "extractionState": "manual",
+      "shouldTranslate": false
+    },
+    "10": {
+      "comment": "Numeric slider endpoint",
+      "extractionState": "manual",
+      "shouldTranslate": false
+    },
     "10 lo-fi hip-hop drum loops by holizna, via Freesound.org. Licensed CC0 1.0 (public domain).": {
       "comment": "Credits paragraph",
       "extractionState": "manual",
@@ -505,6 +525,114 @@
         }
       }
     },
+    "AM": {
+      "comment": "12-hour clock suffix in the VCR timestamp",
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AM"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AM"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AM"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "午前"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AM"
+          }
+        }
+      }
+    },
+    "AMBER": {
+      "comment": "Drum loop name",
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "BERNSTEIN"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ÁMBAR"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AMBRE"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "琥珀"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ÂMBAR"
+          }
+        }
+      }
+    },
+    "APR": {
+      "comment": "Month abbreviation in the VCR timestamp (3 characters where possible)",
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "APR"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ABR"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AVR"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "4月"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ABR"
+          }
+        }
+      }
+    },
     "ARCADE": {
       "comment": "Location name shown in the chip under the image card",
       "extractionState": "manual",
@@ -573,6 +701,42 @@
           "stringUnit": {
             "state": "translated",
             "value": "ÁUDIO"
+          }
+        }
+      }
+    },
+    "AUG": {
+      "comment": "Month abbreviation in the VCR timestamp (3 characters where possible)",
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AUG"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AGO"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AOÛ"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "8月"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AGO"
           }
         }
       }
@@ -758,9 +922,76 @@
       }
     },
     "BBD_CHORUS": {
-      "comment": "Technical DSP sub-label, intentionally English",
+      "comment": "Slider sub-label: BBD (bucket-brigade) chorus",
       "extractionState": "manual",
-      "shouldTranslate": false
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CHORUS_BBD"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CORO_BBD"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CHŒUR_BBD"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "BBDコーラス"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CHORUS_BBD"
+          }
+        }
+      }
+    },
+    "BOOMBAP": {
+      "comment": "Drum loop name (hip-hop genre)",
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "BOOMBAP"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "BOOMBAP"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "BOOMBAP"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ブームバップ"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "BOOMBAP"
+          }
+        }
+      }
     },
     "BOWLING ALLEY": {
       "comment": "Location name shown in the chip under the image card",
@@ -794,6 +1025,42 @@
           "stringUnit": {
             "state": "translated",
             "value": "BOLICHE"
+          }
+        }
+      }
+    },
+    "BPM:": {
+      "comment": "Readout prefix before the tempo number",
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "BPM:"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "BPM:"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "BPM:"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "BPM:"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "BPM:"
           }
         }
       }
@@ -1338,6 +1605,78 @@
         }
       }
     },
+    "DEC": {
+      "comment": "Month abbreviation in the VCR timestamp (3 characters where possible)",
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DEZ"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DIC"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DÉC"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "12月"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DEZ"
+          }
+        }
+      }
+    },
+    "DEST: MEMORY": {
+      "comment": "Render screen destination readout",
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ZIEL: SPEICHER"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DEST: MEMORIA"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DEST: MÉMOIRE"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "出力: メモリ"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DEST: MEMÓRIA"
+          }
+        }
+      }
+    },
     "DONE": {
       "comment": "Dismiss button (About, tip jar, render complete)",
       "extractionState": "manual",
@@ -1370,6 +1709,42 @@
           "stringUnit": {
             "state": "translated",
             "value": "CONCLUÍDO"
+          }
+        }
+      }
+    },
+    "DRIFT": {
+      "comment": "Drum loop name",
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "TREIBEN"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DERIVA"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DÉRIVE"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ドリフト"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DERIVA"
           }
         }
       }
@@ -1442,6 +1817,42 @@
           "stringUnit": {
             "state": "translated",
             "value": "BATERIA"
+          }
+        }
+      }
+    },
+    "DUSTY": {
+      "comment": "Drum loop name",
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "STAUBIG"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "POLVORIENTO"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "POUSSIÉREUX"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ほこり"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "EMPOEIRADO"
           }
         }
       }
@@ -1590,6 +2001,42 @@
         }
       }
     },
+    "FEB": {
+      "comment": "Month abbreviation in the VCR timestamp (3 characters where possible)",
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "FEB"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "FEB"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "FÉV"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "2月"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "FEV"
+          }
+        }
+      }
+    },
     "FILTER": {
       "comment": "Slider sub-label (bass filter)",
       "extractionState": "manual",
@@ -1622,6 +2069,42 @@
           "stringUnit": {
             "state": "translated",
             "value": "FILTRO"
+          }
+        }
+      }
+    },
+    "FUNKY": {
+      "comment": "Drum loop name",
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "FUNKY"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "FUNKY"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "FUNKY"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ファンキー"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "FUNKY"
           }
         }
       }
@@ -1694,6 +2177,42 @@
           "stringUnit": {
             "state": "translated",
             "value": "AMBIENTE GLOBAL"
+          }
+        }
+      }
+    },
+    "GRIT": {
+      "comment": "Drum loop name",
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KÖRNUNG"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "GRANO"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "GRAIN"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ザラつき"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "GRANULADO"
           }
         }
       }
@@ -1838,6 +2357,42 @@
           "stringUnit": {
             "state": "translated",
             "value": "Gerar melodia"
+          }
+        }
+      }
+    },
+    "HAZY": {
+      "comment": "Drum loop name",
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DUNSTIG"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "BRUMOSO"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "BRUMEUX"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "霞"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NEBULOSO"
           }
         }
       }
@@ -2022,6 +2577,150 @@
         }
       }
     },
+    "JAN": {
+      "comment": "Month abbreviation in the VCR timestamp (3 characters where possible)",
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "JAN"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ENE"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "JAN"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1月"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "JAN"
+          }
+        }
+      }
+    },
+    "JUL": {
+      "comment": "Month abbreviation in the VCR timestamp (3 characters where possible)",
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "JUL"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "JUL"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "JUL"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "7月"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "JUL"
+          }
+        }
+      }
+    },
+    "JUN": {
+      "comment": "Month abbreviation in the VCR timestamp (3 characters where possible)",
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "JUN"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "JUN"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "JUN"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "6月"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "JUN"
+          }
+        }
+      }
+    },
+    "LANGUAGE": {
+      "comment": "About sheet: language picker heading",
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SPRACHE"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "IDIOMA"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LANGUE"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "言語"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "IDIOMA"
+          }
+        }
+      }
+    },
     "LAUNDROMAT": {
       "comment": "Location name shown in the chip under the image card",
       "extractionState": "manual",
@@ -2126,6 +2825,42 @@
           "stringUnit": {
             "state": "translated",
             "value": "BIBLIOTECA"
+          }
+        }
+      }
+    },
+    "LOOP:": {
+      "comment": "Readout prefix before the drum loop name",
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LOOP:"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "BUCLE:"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "BOUCLE:"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ループ:"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LOOP:"
           }
         }
       }
@@ -2238,6 +2973,114 @@
         }
       }
     },
+    "MAR": {
+      "comment": "Month abbreviation in the VCR timestamp (3 characters where possible)",
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MÄR"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MAR"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MAR"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "3月"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MAR"
+          }
+        }
+      }
+    },
+    "MAY": {
+      "comment": "Month abbreviation in the VCR timestamp (3 characters where possible)",
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MAI"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MAY"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MAI"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "5月"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MAI"
+          }
+        }
+      }
+    },
+    "MIDNIGHT": {
+      "comment": "Drum loop name",
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MITTERNACHT"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MEDIANOCHE"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MINUIT"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "真夜中"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MEIA-NOITE"
+          }
+        }
+      }
+    },
     "MOVIE THEATER": {
       "comment": "Location name shown in the chip under the image card",
       "extractionState": "manual",
@@ -2306,6 +3149,78 @@
           "stringUnit": {
             "state": "translated",
             "value": "NOSTALGIA"
+          }
+        }
+      }
+    },
+    "NOV": {
+      "comment": "Month abbreviation in the VCR timestamp (3 characters where possible)",
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NOV"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NOV"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NOV"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "11月"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NOV"
+          }
+        }
+      }
+    },
+    "OCT": {
+      "comment": "Month abbreviation in the VCR timestamp (3 characters where possible)",
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OKT"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OCT"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OCT"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "10月"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OUT"
           }
         }
       }
@@ -2634,6 +3549,78 @@
         }
       }
     },
+    "PAUSE": {
+      "comment": "VCR OSD word on the image card",
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PAUSE"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PAUSA"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PAUSE"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "一時停止"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PAUSA"
+          }
+        }
+      }
+    },
+    "PLAY": {
+      "comment": "VCR OSD word on the image card (typed intro + play button); also the typewriter length",
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "WIEDERGABE"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "REPRODUCIR"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LECTURE"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "再生"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "REPRODUZIR"
+          }
+        }
+      }
+    },
     "PLAY AREA": {
       "comment": "Location name shown in the chip under the image card (children's play area)",
       "extractionState": "manual",
@@ -2670,6 +3657,42 @@
         }
       }
     },
+    "PM": {
+      "comment": "12-hour clock suffix in the VCR timestamp",
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PM"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PM"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PM"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "午後"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PM"
+          }
+        }
+      }
+    },
     "PRIVACY POLICY": {
       "comment": "About link (opens an English web page)",
       "extractionState": "manual",
@@ -2702,6 +3725,42 @@
           "stringUnit": {
             "state": "translated",
             "value": "POLÍTICA DE PRIVACIDADE"
+          }
+        }
+      }
+    },
+    "PROG:": {
+      "comment": "Readout prefix before the chord progression (e.g. Am-F-C-G; chord names are not translated)",
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AKKORDE:"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ACORDES:"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ACCORDS:"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "コード:"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ACORDES:"
           }
         }
       }
@@ -2886,6 +3945,78 @@
         }
       }
     },
+    "REC": {
+      "comment": "VCR OSD record indicator (image card and rendered video)",
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AUFN"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "GRAB"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ENR"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "録画"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "GRAV"
+          }
+        }
+      }
+    },
+    "REC %@ ///": {
+      "comment": "Render progress bar text; %@ = spinner character",
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AUFN %@ ///"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "GRAB %@ ///"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ENR %@ ///"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "録画 %@ ///"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "GRAV %@ ///"
+          }
+        }
+      }
+    },
     "RENDER & SHARE": {
       "comment": "Big red bar button: renders the video clip then opens the share sheet",
       "extractionState": "manual",
@@ -2959,9 +4090,76 @@
       }
     },
     "REV_DECAY": {
-      "comment": "Technical DSP sub-label, intentionally English",
+      "comment": "Slider sub-label: reverb decay (snake_case readout style)",
       "extractionState": "manual",
-      "shouldTranslate": false
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "HALLDAUER"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CAÍDA_REVERB"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DÉCLIN_REVERB"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "リバーブ減衰"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DECAIM_REVERB"
+          }
+        }
+      }
+    },
+    "SAW": {
+      "comment": "Waveform chip (sawtooth)",
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SÄGEZAHN"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SIERRA"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SCIE"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ノコギリ"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SERRA"
+          }
+        }
+      }
     },
     "SCHOOL HALLWAY": {
       "comment": "Location name shown in the chip under the image card",
@@ -2995,6 +4193,78 @@
           "stringUnit": {
             "state": "translated",
             "value": "CORREDOR ESCOLAR"
+          }
+        }
+      }
+    },
+    "SEP": {
+      "comment": "Month abbreviation in the VCR timestamp (3 characters where possible)",
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SEP"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SEP"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SEP"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "9月"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SET"
+          }
+        }
+      }
+    },
+    "SHADOW": {
+      "comment": "Drum loop name",
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SCHATTEN"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SOMBRA"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OMBRE"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "影"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SOMBRA"
           }
         }
       }
@@ -3071,6 +4341,78 @@
         }
       }
     },
+    "SINE": {
+      "comment": "Waveform chip (shown uppercased)",
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SINUS"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SENO"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SINUS"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "サイン"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SENO"
+          }
+        }
+      }
+    },
+    "SP": {
+      "comment": "VCR OSD tape speed (Standard Play) (image card and rendered video)",
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SP"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SP"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SP"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "標準"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SP"
+          }
+        }
+      }
+    },
     "SPACE": {
       "comment": "Slider label (reverb)",
       "extractionState": "manual",
@@ -3139,6 +4481,78 @@
           "stringUnit": {
             "state": "translated",
             "value": "VELOCIDADE"
+          }
+        }
+      }
+    },
+    "SQUARE": {
+      "comment": "Waveform chip",
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "RECHTECK"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CUADRADA"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CARRÉE"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "矩形"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "QUADRADA"
+          }
+        }
+      }
+    },
+    "SRC: VTR_01": {
+      "comment": "Render screen source readout",
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "QUELLE: VTR_01"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ORIG: VTR_01"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SOURCE: VTR_01"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "入力: VTR_01"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ORIG: VTR_01"
           }
         }
       }
@@ -3431,6 +4845,42 @@
         }
       }
     },
+    "System Default": {
+      "comment": "About sheet: language picker option that follows the device language",
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Systemstandard"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Predeterminado del sistema"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réglage du système"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "システムのデフォルト"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Padrão do sistema"
+          }
+        }
+      }
+    },
     "TEMPO": {
       "comment": "Slider sub-label",
       "extractionState": "manual",
@@ -3499,6 +4949,42 @@
           "stringUnit": {
             "state": "translated",
             "value": "TOM"
+          }
+        }
+      }
+    },
+    "TRIANGLE": {
+      "comment": "Waveform chip",
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DREIECK"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "TRIÁNGULO"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "TRIANGLE"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "三角"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "TRIÂNGULO"
           }
         }
       }
@@ -3755,6 +5241,42 @@
         }
       }
     },
+    "VINYL": {
+      "comment": "Drum loop name",
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "VINYL"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "VINILO"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "VINYLE"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ヴァイナル"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "VINIL"
+          }
+        }
+      }
+    },
     "Video encoding failed: %@": {
       "comment": "Render error message; %@ = technical reason",
       "extractionState": "manual",
@@ -3792,9 +5314,40 @@
       }
     },
     "WOW_FLUTTER": {
-      "comment": "Technical DSP sub-label, intentionally English",
+      "comment": "Slider sub-label: tape wow & flutter",
       "extractionState": "manual",
-      "shouldTranslate": false
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "GLEICHLAUF"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OSCIL_CINTA"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PLEURAGE"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ワウフラッター"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OSCIL_FITA"
+          }
+        }
+      }
     },
     "We couldn’t complete your tip. Please try again later.": {
       "comment": "Alert message",

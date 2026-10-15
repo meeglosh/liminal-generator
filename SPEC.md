@@ -551,3 +551,41 @@ sheet is dismissed after the user's first *completed* share (`UIActivityViewCont
 counts), i.e. as the DONE / RE-SHARE screen is showing. Never on launch or during playback. The `hasRequestedReview` UserDefaults flag
 is set when it fires, so it is not asked again (Apple additionally rate-limits). Debug builds skip it when `LG_RENDER_SECONDS` is set
 (the UI-test launch environment) so the system dialog cannot block XCUITest.
+
+## Localization (2026-10-15, branch `codex/localization-1.1`, for release 1.1)
+- Languages: English (development language / source), Spanish `es`, Portuguese Brazil `pt-BR`, French `fr`,
+  German `de`, Japanese `ja`. Registered in `Info.plist` (`CFBundleLocalizations`) and, via XcodeGen,
+  `knownRegions`; `project.yml` sets `developmentLanguage: en`. Info.plist has no user-visible strings other
+  than the brand name, so there is no `InfoPlist.xcstrings`.
+- All UI text lives in one String Catalog, `LiminalGenerator/Resources/Localizable.xcstrings`. The English
+  source text IS the key (so the English UI tests still match on e.g. "RE-SHARE"). Keys with
+  `shouldTranslate: false` are numerals (slider endpoints `0`, `10`, `-INF`, `+6dB`). The only text left
+  verbatim everywhere is the app name "LIMINAL GENERATOR" (header, About, splash wordmark, video
+  watermark) and "Space Mono — Colophon Foundry / Google Fonts.", plus chord names and numbers.
+- Everything else is localized, including the VHS OSD (PLAY/PAUSE/REC/SP, month names, AM/PM), waveform chips,
+  drum-loop names, terminal log lines, and the OSD text baked into rendered videos
+  (`VHSFrameCompositor` calls `tr(...)`).
+- How strings are looked up: in views use `Text("KEY")` / `LocalizedStringKey` parameters (components take
+  `LocalizedStringKey`; upper-casing is `.textCase(.uppercase)`, never `.uppercased()` on a localized
+  string). Outside views (alerts in `TipStore`, `ClipRenderError`, typewriter word, timestamp, video OSD) use
+  `tr("KEY")` from `App/LanguageManager.swift`. Never pass a plain `String` to `Text(_:)` for text that
+  needs translating (that is the verbatim initializer).
+- In-app language picker (About sheet, `accessibilityIdentifier("languagePicker")`): choices System Default /
+  English / Español / Português (Brasil) / Français / Deutsch / 日本語, persisted in UserDefaults
+  (`appLanguage`). Applied live through `.environment(\.locale, ...)` at the app root + `tr()`. Surfaces that
+  keep the DEVICE language: the system share sheet and its labels, StoreKit product names/prices and the
+  purchase confirmation sheet, the App Store review prompt, system alerts, and the app's name under the icon.
+  Rendered videos use the language selected at the moment the render starts.
+- Fonts: `UIFont.liminalMono` (Theme.swift) = Space Mono with a cascade to Hiragino Sans (W3/W6) so Japanese
+  kana/kanji always use Japanese glyph forms, in SwiftUI and in text baked into videos. Hiragino is
+  proportional, so ja lines are not strictly monospaced.
+- To add a string: use it in code as above, then add an entry (with a `comment`) to the catalog with all five
+  translations. To add a language: add it to `LANGS` in `tests/check-localization.py`, to
+  `Info.plist` `CFBundleLocalizations`, to `AppLanguage.options`, add a translation to every catalog entry.
+- Checks: `python3 tests/check-localization.py` fails on any missing/untranslated/format-mismatched entry;
+  with `--extracted <DerivedData .../Objects-normal/arm64>` it also fails on keys used in code but absent from
+  the catalog. `LanguagePickerTests` UI test exercises the picker; `LocalizationScreenshotTests` (opt-in via
+  `TEST_RUNNER_LG_SHOT_LANG=xx TEST_RUNNER_LG_SHOT_DIR=...`) captures per-language screenshots into
+  `docs/localization/<lang>/`.
+- Watermark: the baked "LIMINAL GENERATOR" watermark's glow was halved (blur radius 0.014 -> 0.007 of frame
+  width and glow alpha 0.85 -> 0.425) for legibility; text itself unchanged. Live preview has no watermark.

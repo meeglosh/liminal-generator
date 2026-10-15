@@ -140,7 +140,7 @@ struct MainView: View {
             // established when writing this binding, so it matches the
             // OSD's own reveal/cut timing (and reduce-motion behavior) for
             // free without duplicating those constants in this file.
-            LiminalChip(text: String(localized: currentImage.locationName))
+            LiminalChip(text: currentImage.locationName)
                 .opacity(isCardScreenOn ? 1 : 0)
                 .accessibilityHidden(!isCardScreenOn)
         }
@@ -156,8 +156,9 @@ struct MainView: View {
             .accessibilityIdentifier("generateMelodyButton")
 
             HStack {
-                (Text(verbatim: "PROG: ")
+                (Text("PROG:")
                     .foregroundColor(.liminalOnSurfaceVariant)
+                    + Text(verbatim: " ")
                     + Text(engine.currentPattern.displaySeq)
                     .foregroundColor(.liminalCRTGreenDim))
                     .lineLimit(1)
@@ -171,7 +172,7 @@ struct MainView: View {
                 // where baseTempoSource is the active loop's bpm while
                 // drums are enabled, else the fixed base melody bpm. See
                 // SPEC.md's "Musical style" / pinned contract addendum.
-                Text(verbatim: "BPM: \(engine.effectiveBPM)")
+                (Text("BPM:") + Text(verbatim: " \(engine.effectiveBPM)"))
                     .foregroundColor(.liminalOnSurfaceVariant)
                     .layoutPriority(1)
                     .accessibilityIdentifier("bpmReadout")
@@ -182,8 +183,8 @@ struct MainView: View {
             LiminalSliderRow(
                 label: "COLOR",
                 subLabel: "TONE",
-                leftEndpoint: String(localized: "DARK"),
-                rightEndpoint: String(localized: "BRIGHT"),
+                leftEndpoint: "DARK",
+                rightEndpoint: "BRIGHT",
                 value: $engine.color,
                 sliderAccessibilityIdentifier: "colorSlider"
             )
@@ -198,7 +199,7 @@ struct MainView: View {
         HStack(spacing: LiminalMetrics.stackSmall) {
             ForEach(LiminalWaveform.allCases, id: \.self) { wave in
                 LiminalSelectableChip(
-                    text: wave.rawValue,
+                    text: wave.displayKey,
                     isSelected: engine.waveform == wave
                 ) {
                     engine.waveform = wave
@@ -233,8 +234,8 @@ struct MainView: View {
                     LiminalSliderRow(
                         label: "COLOR",
                         subLabel: "FILTER",
-                        leftEndpoint: String(localized: "DARK"),
-                        rightEndpoint: String(localized: "BRIGHT"),
+                        leftEndpoint: "DARK",
+                        rightEndpoint: "BRIGHT",
                         value: $engine.bassColor,
                         sliderAccessibilityIdentifier: "bassColorSlider"
                     )
@@ -343,15 +344,16 @@ struct MainView: View {
                     .accessibilityIdentifier("generateBeatButton")
 
                     HStack {
-                        (Text(verbatim: "LOOP: ")
+                        (Text("LOOP:")
                             .foregroundColor(.liminalOnSurfaceVariant)
-                            + Text(engine.currentBeat.displayName)
+                            + Text(verbatim: " ")
+                            + Text(LocalizedStringKey(engine.currentBeat.displayName))
                             .foregroundColor(.liminalCRTGreenDim))
                             .accessibilityIdentifier("loopReadout")
 
                         Spacer()
 
-                        Text(verbatim: "BPM: \(engine.currentBeat.bpm)")
+                        (Text("BPM:") + Text(verbatim: " \(engine.currentBeat.bpm)"))
                             .foregroundColor(.liminalOnSurfaceVariant)
                             .accessibilityIdentifier("drumBpmReadout")
                     }

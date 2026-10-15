@@ -10,6 +10,7 @@ struct LiminalGeneratorApp: App {
     /// separately-timed mount. See `splashDismissed` in `VHSImageCard.swift`.
     @State private var splashFullyDismissed = false
     @StateObject private var tipStore = TipStore()
+    @StateObject private var language = LanguageManager()
 
     var body: some Scene {
         WindowGroup {
@@ -23,6 +24,8 @@ struct LiminalGeneratorApp: App {
                 }
             }
             .environmentObject(tipStore)
+            .environmentObject(language)
+            .environment(\.locale, language.locale)
             .environment(\.splashDismissed, splashFullyDismissed)
             .preferredColorScheme(.dark)
             .task {

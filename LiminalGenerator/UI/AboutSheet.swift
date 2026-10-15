@@ -10,6 +10,7 @@ import SwiftUI
 
 struct AboutSheet: View {
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var language: LanguageManager
 
     var body: some View {
         NavigationStack {
@@ -37,33 +38,28 @@ struct AboutSheet: View {
                         .font(.spaceMono(size: 12, weight: .bold))
                         .foregroundColor(.liminalCRTGreenDim)
 
+                        languageSection
+
                         creditSection(
                             title: "TYPEFACE",
-                            lines: [
-                                "Space Mono — Colophon Foundry / Google Fonts.",
-                                String(localized: "Licensed under the SIL Open Font License."),
-                            ]
+                            body: Text(verbatim: "Space Mono — Colophon Foundry / Google Fonts.")
+                                + Text(verbatim: "\n")
+                                + Text("Licensed under the SIL Open Font License.")
                         )
 
                         creditSection(
                             title: "IMAGERY",
-                            lines: [
-                                String(localized: "\(ImageLibrary.count) generated liminal-space stills, bundled with the app and processed live through an on-device VHS filter."),
-                            ]
+                            body: Text("\(ImageLibrary.count) generated liminal-space stills, bundled with the app and processed live through an on-device VHS filter.")
                         )
 
                         creditSection(
                             title: "AUDIO",
-                            lines: [
-                                String(localized: "Ambient chords and melodies, generated entirely on-device, with optional lo-fi drum loops layered in."),
-                            ]
+                            body: Text("Ambient chords and melodies, generated entirely on-device, with optional lo-fi drum loops layered in.")
                         )
 
                         creditSection(
                             title: "DRUM LOOPS",
-                            lines: [
-                                String(localized: "10 lo-fi hip-hop drum loops by holizna, via Freesound.org. Licensed CC0 1.0 (public domain)."),
-                            ]
+                            body: Text("10 lo-fi hip-hop drum loops by holizna, via Freesound.org. Licensed CC0 1.0 (public domain).")
                         )
                     }
                     .padding(LiminalMetrics.marginMobile)
@@ -84,21 +80,64 @@ struct AboutSheet: View {
         .preferredColorScheme(.dark)
     }
 
-    private func creditSection(title: LocalizedStringResource, lines: [String]) -> some View {
+    private func creditSection(title: LocalizedStringKey, body: Text) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(String(localized: title))
+            Text(title)
                 .font(.spaceMono(size: 12, weight: .bold))
                 .tracking(2)
                 .foregroundColor(.liminalOnSurfaceVariant)
-            ForEach(lines, id: \.self) { line in
-                Text(verbatim: line)
-                    .font(.spaceMono(size: 12))
-                    .foregroundColor(.liminalTapeHiss)
+            body
+                .font(.spaceMono(size: 12))
+                .foregroundColor(.liminalTapeHiss)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    /// In-app language dropdown: same sharp-cornered, mono, CRT-green look
+    /// as the rest of the sheet. See LanguageManager for what follows it.
+    private var languageSection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("LANGUAGE")
+                .font(.spaceMono(size: 12, weight: .bold))
+                .tracking(2)
+                .foregroundColor(.liminalOnSurfaceVariant)
+            Menu {
+                Picker(selection: $language.selection) {
+                    ForEach(AppLanguage.options) { option in
+                        if let name = option.nativeName {
+                            Text(verbatim: name).tag(option.code)
+                        } else {
+                            Text("System Default").tag(option.code)
+                        }
+                    }
+                } label: {
+                    Text("LANGUAGE")
+                }
+            } label: {
+                HStack(spacing: 8) {
+                    if let name = AppLanguage.options.first(where: { $0.code == language.selection })?.nativeName {
+                        Text(verbatim: name)
+                    } else {
+                        Text("System Default")
+                    }
+                    Spacer(minLength: 8)
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.system(size: 11, weight: .bold))
+                        .accessibilityHidden(true)
+                }
+                .font(.spaceMono(size: 12, weight: .bold))
+                .foregroundColor(.liminalCRTGreenDim)
+                .padding(.horizontal, 14)
+                .frame(minHeight: 48)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.liminalSurfaceContainerLow)
+                .overlay(Rectangle().stroke(Color.liminalOutlineVariant, lineWidth: 1))
             }
+            .accessibilityIdentifier("languagePicker")
         }
     }
 }
 
 #Preview {
-    AboutSheet().environmentObject(TipStore())
+    AboutSheet().environmentObject(TipStore()).environmentObject(LanguageManager())
 }

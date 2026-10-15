@@ -69,13 +69,13 @@ final class TipStore: ObservableObject {
             }
             if products.count != Self.productIDs.count {
                 loadError = products.isEmpty
-                    ? String(localized: "Tips are temporarily unavailable. Please try again later.")
-                    : String(localized: "Some tip amounts are unavailable right now.")
+                    ? tr("Tips are temporarily unavailable. Please try again later.")
+                    : tr("Some tip amounts are unavailable right now.")
             }
         } catch {
             // Never substitute a hardcoded price or charge for an unavailable product.
             products = []
-            loadError = String(localized: "Couldn’t connect to the App Store. Please try again.")
+            loadError = tr("Couldn’t connect to the App Store. Please try again.")
         }
     }
 
@@ -83,7 +83,7 @@ final class TipStore: ObservableObject {
         guard purchasingID == nil, Self.productIDs.contains(product.id),
               product.type == .consumable else { return }
         guard canMakePayments else {
-            notice = Notice(title: String(localized: "Purchases unavailable"), message: String(localized: "In-app purchases are disabled on this device."))
+            notice = Notice(title: tr("Purchases unavailable"), message: tr("In-app purchases are disabled on this device."))
             return
         }
         purchasingID = product.id
@@ -93,15 +93,15 @@ final class TipStore: ObservableObject {
             switch try await product.purchase() {
             case .success(let result): await handle(result)
             case .pending:
-                notice = Notice(title: String(localized: "Tip awaiting approval"), message: String(localized: "Apple is waiting for approval or payment confirmation. Thank you for wanting to support the app."))
+                notice = Notice(title: tr("Tip awaiting approval"), message: tr("Apple is waiting for approval or payment confirmation. Thank you for wanting to support the app."))
             case .userCancelled: break
             @unknown default:
-                notice = Notice(title: String(localized: "Tip not completed"), message: String(localized: "Please try again later."))
+                notice = Notice(title: tr("Tip not completed"), message: tr("Please try again later."))
             }
         } catch StoreKitError.userCancelled {
             // Cancellation is a normal choice, not an error to show the user.
         } catch {
-            notice = Notice(title: String(localized: "Tip not completed"), message: String(localized: "We couldn’t complete your tip. Please try again later."))
+            notice = Notice(title: tr("Tip not completed"), message: tr("We couldn’t complete your tip. Please try again later."))
         }
     }
 
@@ -117,10 +117,10 @@ final class TipStore: ObservableObject {
             }
             guard handledTransactions.insert(transaction.id).inserted else { return }
             await transaction.finish()
-            notice = Notice(title: String(localized: "Thank you!"), message: String(localized: "Your tip helps keep the tapes rolling. Enjoy the music."))
+            notice = Notice(title: tr("Thank you!"), message: tr("Your tip helps keep the tapes rolling. Enjoy the music."))
         case .unverified:
             // Never acknowledge an unverified payment as a successful tip.
-            notice = Notice(title: String(localized: "Couldn’t verify tip"), message: String(localized: "We couldn’t verify this purchase. Please check your App Store purchase history before trying again."))
+            notice = Notice(title: tr("Couldn’t verify tip"), message: tr("We couldn’t verify this purchase. Please check your App Store purchase history before trying again."))
         }
     }
 }

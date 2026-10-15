@@ -92,13 +92,10 @@ final class VHSFrameCompositor: @unchecked Sendable {
 
         // Parse "H:MM:SS AM/PM" into components so the OSD clock can tick
         // forward across the clip's duration.
-        let parts = timestamp.timeText.split(separator: " ")
-        let isPM = parts.count > 1 && parts[1] == "PM"
-        let hms = (parts.first.map(String.init) ?? "12:00:00").split(separator: ":").compactMap { Int($0) }
-        startHour12 = hms.count > 0 ? hms[0] : 12
-        startMinute = hms.count > 1 ? hms[1] : 0
-        startSecond = hms.count > 2 ? hms[2] : 0
-        startIsPM = isPM
+        startHour12 = timestamp.hour12
+        startMinute = timestamp.minute
+        startSecond = timestamp.second
+        startIsPM = timestamp.isPM
 
         // Tracking-glitch schedule: a fresh random seed per render instance
         // (from the system RNG), then every subsequent decision comes from
@@ -485,7 +482,7 @@ final class VHSFrameCompositor: @unchecked Sendable {
         if hour == 0 { hour = 12 }
         var isPM = startIsPM
         if pmFlips % 2 == 1 { isPM.toggle() }
-        return String(format: "%d:%02d:%02d %@", hour, minute, second, isPM ? "PM" : "AM")
+        return VHSTimestamp.timeText(hour12: hour, minute: minute, second: second, isPM: isPM)
     }
 
     private static func drawOSD(dateText: String, timeText: String, recOn: Bool, size: CGSize) -> CGImage {
@@ -497,10 +494,8 @@ final class VHSFrameCompositor: @unchecked Sendable {
         let image = renderer.image { rendererContext in
             let cg = rendererContext.cgContext
             let margin: CGFloat = size.width * 0.028
-            let dateFont = UIFont(name: "SpaceMono-Bold", size: size.width * 0.032)
-                ?? UIFont.monospacedSystemFont(ofSize: size.width * 0.032, weight: .bold)
-            let bodyFont = UIFont(name: "SpaceMono-Regular", size: size.width * 0.030)
-                ?? UIFont.monospacedSystemFont(ofSize: size.width * 0.030, weight: .regular)
+            let dateFont = UIFont.liminalMono(size: size.width * 0.032, bold: true)
+            let bodyFont = UIFont.liminalMono(size: size.width * 0.030, bold: false)
             let osdColor = UIColor(red: 0.933, green: 1.0, blue: 0.894, alpha: 1.0) // liminalPrimary
             let recColor = UIColor(red: 1.0, green: 0.706, blue: 0.671, alpha: 1.0) // liminalError
 
@@ -528,7 +523,7 @@ final class VHSFrameCompositor: @unchecked Sendable {
                 cg.setShadow(offset: .zero, blur: size.width * 0.014, color: UIColor.red.withAlphaComponent(0.9).cgColor)
                 cg.fillEllipse(in: CGRect(x: margin, y: recY + dotDiameter * 0.15, width: dotDiameter, height: dotDiameter))
                 cg.restoreGState()
-                _ = drawGlow("REC", font: bodyFont, color: recColor,
+                _ = drawGlow(tr("REC"), font: bodyFont, color: recColor,
                              origin: CGPoint(x: margin + dotDiameter + size.width * 0.012, y: recY))
             }
 
@@ -536,7 +531,7 @@ final class VHSFrameCompositor: @unchecked Sendable {
             _ = drawGlow(timeText, font: bodyFont, color: osdColor, origin: CGPoint(x: margin, y: timeY))
 
             // Top-right: SP
-            _ = drawGlow("SP", font: bodyFont, color: osdColor, origin: CGPoint(x: size.width - margin, y: margin), alignRight: true)
+            _ = drawGlow(tr("SP"), font: bodyFont, color: osdColor, origin: CGPoint(x: size.width - margin, y: margin), alignRight: true)
         }
 
         if let cg = image.cgImage {
@@ -566,8 +561,7 @@ final class VHSFrameCompositor: @unchecked Sendable {
             let cg = rendererContext.cgContext
             let margin: CGFloat = size.width * 0.028
             let fontSize = size.height * 0.035
-            let font = UIFont(name: "SpaceMono-Bold", size: fontSize)
-                ?? UIFont.monospacedSystemFont(ofSize: fontSize, weight: .bold)
+            let font = UIFont.liminalMono(size: fontSize, bold: true)
             let color = UIColor(red: 0.933, green: 1.0, blue: 0.894, alpha: 0.8) // liminalPrimary @ ~80%
             let text = "LIMINAL GENERATOR"
 
