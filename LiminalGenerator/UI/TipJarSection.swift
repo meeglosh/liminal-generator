@@ -44,7 +44,7 @@ struct TipJarSection: View {
                     .buttonStyle(.plain)
                     .disabled(store.purchasingID != nil || store.isLoading)
                     .accessibilityIdentifier(product.id)
-                    .accessibilityHint("Optional one-time tip. Opens Apple’s purchase confirmation.")
+                    .accessibilityHint(Text("Optional one-time tip. Opens Apple’s purchase confirmation."))
                 }
                 if store.isLoading {
                     ProgressView("Loading tip amounts…")

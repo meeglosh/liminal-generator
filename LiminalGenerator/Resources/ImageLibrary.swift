@@ -44,13 +44,13 @@
 import Foundation
 
 /// A single entry in the bundled liminal-space image library.
-struct LiminalImage: Identifiable, Hashable {
+struct LiminalImage: Identifiable {
     /// 1-based position in the library (also encoded in `assetName`).
     let id: Int
     /// Name of the imageset in Assets.xcassets.
     let assetName: String
     /// Short, human-readable, uppercase location name for the OSD / UI.
-    let locationName: String
+    let locationName: LocalizedStringResource
 }
 
 /// Static manifest of every image bundled in Assets.xcassets.

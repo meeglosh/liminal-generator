@@ -203,7 +203,7 @@ private struct VHSOSDOverlay: View {
             Button(action: onTogglePlay) {
                 HStack(spacing: 6) {
                     playLabel
-                    Text(isPlaying ? "\u{275A}\u{275A}" : "\u{25B6}")
+                    Text(verbatim: isPlaying ? "\u{275A}\u{275A}" : "\u{25B6}")
                         .font(.spaceMono(size: 14, weight: .bold))
                         .foregroundColor(.liminalPrimary)
                         .shadow(color: .liminalCRTGreenDim.opacity(0.8), radius: 3)
@@ -260,7 +260,7 @@ private struct VHSOSDOverlay: View {
             // was already correctly positioned here and is why existence /
             // initial-hittable checks passed), keeps the accessible frame
             // matched to the real hit target through the whole reveal.
-            .accessibilityLabel(isPlaying ? "Pause" : "Play")
+            .accessibilityLabel(isPlaying ? Text("Pause") : Text("Play"))
             .accessibilityIdentifier("playPauseButton")
         }
         .onReceive(blinkTimer) { _ in
@@ -423,7 +423,7 @@ private struct VHSOSDOverlay: View {
     }
 
     private func osdText(_ text: String, color: Color = .liminalPrimary, size: CGFloat = 12, weight: Font.Weight = .regular) -> some View {
-        Text(text)
+        Text(verbatim: text)
             .font(.spaceMono(size: size, weight: weight))
             .tracking(1)
             .foregroundColor(color)

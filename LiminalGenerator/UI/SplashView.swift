@@ -45,13 +45,13 @@ private struct GlitchWordmark: View {
 
     var body: some View {
         ZStack {
-            Text(text)
+            Text(verbatim: text)
                 .foregroundColor(.red.opacity(0.65))
                 .offset(x: -2)
-            Text(text)
+            Text(verbatim: text)
                 .foregroundColor(.cyan.opacity(0.65))
                 .offset(x: 2)
-            Text(text)
+            Text(verbatim: text)
                 .foregroundColor(.liminalPrimary)
         }
         .font(.spaceMono(size: 28, weight: .bold))

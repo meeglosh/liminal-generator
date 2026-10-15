@@ -82,7 +82,7 @@ struct MainView: View {
                 Image(systemName: "circle.grid.3x3.fill")
                     .font(.system(size: 16))
                     .foregroundColor(.liminalCRTGreenDim)
-                Text("LIMINAL GENERATOR")
+                Text(verbatim: "LIMINAL GENERATOR")
                     .font(.spaceMono(size: 18, weight: .bold))
                     .tracking(0.5)
                     .foregroundColor(.liminalTapeHiss)
@@ -98,7 +98,7 @@ struct MainView: View {
                     .font(.system(size: 18))
                     .foregroundColor(.liminalOnSurfaceVariant)
             }
-            .accessibilityLabel("About")
+            .accessibilityLabel(Text("About"))
             .accessibilityIdentifier("aboutButton")
         }
         .padding(.horizontal, LiminalMetrics.marginMobile)
@@ -140,7 +140,7 @@ struct MainView: View {
             // established when writing this binding, so it matches the
             // OSD's own reveal/cut timing (and reduce-motion behavior) for
             // free without duplicating those constants in this file.
-            LiminalChip(text: currentImage.locationName)
+            LiminalChip(text: String(localized: currentImage.locationName))
                 .opacity(isCardScreenOn ? 1 : 0)
                 .accessibilityHidden(!isCardScreenOn)
         }
@@ -156,7 +156,7 @@ struct MainView: View {
             .accessibilityIdentifier("generateMelodyButton")
 
             HStack {
-                (Text("PROG: ")
+                (Text(verbatim: "PROG: ")
                     .foregroundColor(.liminalOnSurfaceVariant)
                     + Text(engine.currentPattern.displaySeq)
                     .foregroundColor(.liminalCRTGreenDim))
@@ -171,7 +171,7 @@ struct MainView: View {
                 // where baseTempoSource is the active loop's bpm while
                 // drums are enabled, else the fixed base melody bpm. See
                 // SPEC.md's "Musical style" / pinned contract addendum.
-                Text("BPM: \(engine.effectiveBPM)")
+                Text(verbatim: "BPM: \(engine.effectiveBPM)")
                     .foregroundColor(.liminalOnSurfaceVariant)
                     .layoutPriority(1)
                     .accessibilityIdentifier("bpmReadout")
@@ -182,8 +182,8 @@ struct MainView: View {
             LiminalSliderRow(
                 label: "COLOR",
                 subLabel: "TONE",
-                leftEndpoint: "DARK",
-                rightEndpoint: "BRIGHT",
+                leftEndpoint: String(localized: "DARK"),
+                rightEndpoint: String(localized: "BRIGHT"),
                 value: $engine.color,
                 sliderAccessibilityIdentifier: "colorSlider"
             )
@@ -233,8 +233,8 @@ struct MainView: View {
                     LiminalSliderRow(
                         label: "COLOR",
                         subLabel: "FILTER",
-                        leftEndpoint: "DARK",
-                        rightEndpoint: "BRIGHT",
+                        leftEndpoint: String(localized: "DARK"),
+                        rightEndpoint: String(localized: "BRIGHT"),
                         value: $engine.bassColor,
                         sliderAccessibilityIdentifier: "bassColorSlider"
                     )
@@ -343,7 +343,7 @@ struct MainView: View {
                     .accessibilityIdentifier("generateBeatButton")
 
                     HStack {
-                        (Text("LOOP: ")
+                        (Text(verbatim: "LOOP: ")
                             .foregroundColor(.liminalOnSurfaceVariant)
                             + Text(engine.currentBeat.displayName)
                             .foregroundColor(.liminalCRTGreenDim))
@@ -351,7 +351,7 @@ struct MainView: View {
 
                         Spacer()
 
-                        Text("BPM: \(engine.currentBeat.bpm)")
+                        Text(verbatim: "BPM: \(engine.currentBeat.bpm)")
                             .foregroundColor(.liminalOnSurfaceVariant)
                             .accessibilityIdentifier("drumBpmReadout")
                     }
@@ -369,7 +369,7 @@ struct MainView: View {
             showRender = true
         } label: {
             HStack(spacing: 10) {
-                Text("\u{25CF}")
+                Text(verbatim: "\u{25CF}")
                 Text("RENDER & SHARE")
             }
         }

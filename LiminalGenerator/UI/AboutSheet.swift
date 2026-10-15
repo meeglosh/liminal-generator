@@ -19,7 +19,7 @@ struct AboutSheet: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: LiminalMetrics.stackLarge) {
                         VStack(alignment: .leading, spacing: LiminalMetrics.stackSmall) {
-                            Text("LIMINAL GENERATOR")
+                            Text(verbatim: "LIMINAL GENERATOR")
                                 .font(.spaceMono(size: 20, weight: .bold))
                                 .foregroundColor(.liminalCRTGreenDim)
                                 .tracking(1)
@@ -41,34 +41,28 @@ struct AboutSheet: View {
                             title: "TYPEFACE",
                             lines: [
                                 "Space Mono — Colophon Foundry / Google Fonts.",
-                                "Licensed under the SIL Open Font License.",
+                                String(localized: "Licensed under the SIL Open Font License."),
                             ]
                         )
 
                         creditSection(
                             title: "IMAGERY",
                             lines: [
-                                "\(ImageLibrary.count) generated liminal-space stills, bundled",
-                                "with the app and processed live through an",
-                                "on-device VHS filter.",
+                                String(localized: "\(ImageLibrary.count) generated liminal-space stills, bundled with the app and processed live through an on-device VHS filter."),
                             ]
                         )
 
                         creditSection(
                             title: "AUDIO",
                             lines: [
-                                "Ambient chords and melodies, generated",
-                                "entirely on-device, with optional lo-fi",
-                                "drum loops layered in.",
+                                String(localized: "Ambient chords and melodies, generated entirely on-device, with optional lo-fi drum loops layered in."),
                             ]
                         )
 
                         creditSection(
                             title: "DRUM LOOPS",
                             lines: [
-                                "10 lo-fi hip-hop drum loops by holizna,",
-                                "via Freesound.org. Licensed CC0 1.0",
-                                "(public domain).",
+                                String(localized: "10 lo-fi hip-hop drum loops by holizna, via Freesound.org. Licensed CC0 1.0 (public domain)."),
                             ]
                         )
                     }
@@ -90,14 +84,14 @@ struct AboutSheet: View {
         .preferredColorScheme(.dark)
     }
 
-    private func creditSection(title: String, lines: [String]) -> some View {
+    private func creditSection(title: LocalizedStringResource, lines: [String]) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(title)
+            Text(String(localized: title))
                 .font(.spaceMono(size: 12, weight: .bold))
                 .tracking(2)
                 .foregroundColor(.liminalOnSurfaceVariant)
             ForEach(lines, id: \.self) { line in
-                Text(line)
+                Text(verbatim: line)
                     .font(.spaceMono(size: 12))
                     .foregroundColor(.liminalTapeHiss)
             }

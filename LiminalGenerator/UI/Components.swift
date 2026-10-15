@@ -58,7 +58,7 @@ struct DeckButtonStyle: ButtonStyle {
 
 /// "⚄ GENERATE MELODY" / "⚄ GENERATE BEAT" style deck button with haptic tap.
 struct DiceDeckButton: View {
-    let title: String
+    let title: LocalizedStringResource
     let action: () -> Void
 
     var body: some View {
@@ -69,7 +69,7 @@ struct DiceDeckButton: View {
             HStack(spacing: 8) {
                 Image(systemName: "dice")
                     .accessibilityHidden(true)
-                Text(title.uppercased())
+                Text(String(localized: title).uppercased())
             }
         }
         .buttonStyle(DeckButtonStyle())
@@ -157,7 +157,7 @@ struct LiminalSlider: View {
             // regression test reads this before/after) without changing the
             // element's accessibility kind/traits, so `app.otherElements[...]`
             // lookups in existing tests keep matching exactly as before.
-            .accessibilityValue("\(Int((clamped * 100).rounded()))")
+            .accessibilityValue(Text(verbatim: "\(Int((clamped * 100).rounded()))"))
             // Fader geometry must never inherit a surrounding panel animation.
             .transaction { $0.animation = nil }
         }
@@ -279,8 +279,8 @@ private final class DirectionalPanGestureRecognizer: UIPanGestureRecognizer {
 /// A slider row with a left label + right sub-label above it, and endpoint
 /// readouts flanking the track (matches GLOBAL ENV / DRUMS LEVEL rows).
 struct LiminalSliderRow: View {
-    let label: String
-    let subLabel: String?
+    let label: LocalizedStringResource
+    let subLabel: LocalizedStringResource?
     let leftEndpoint: String
     let rightEndpoint: String
     @Binding var value: Float
@@ -292,13 +292,13 @@ struct LiminalSliderRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .lastTextBaseline) {
-                Text(label.uppercased())
+                Text(String(localized: label).uppercased())
                     .font(.spaceMono(size: 12))
                     .tracking(1)
                     .foregroundColor(.liminalCRTGreenDim)
                 if let subLabel {
                     Spacer()
-                    Text(subLabel.uppercased())
+                    Text(String(localized: subLabel).uppercased())
                         .font(.spaceMono(size: 10))
                         .tracking(1)
                         .foregroundColor(.liminalOnSurfaceVariant)
@@ -348,7 +348,7 @@ struct LiminalToggle: View {
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(.isButton)
-        .accessibilityValue(isOn ? "On" : "Off")
+        .accessibilityValue(isOn ? Text("On") : Text("Off"))
     }
 }
 
@@ -357,7 +357,7 @@ struct LiminalToggle: View {
 /// Sharp-edged card container with a labeled "tape spine" header, per
 /// DESIGN.md ("Cards (VCR Static)").
 struct LiminalCard<Content: View>: View {
-    let title: String
+    let title: LocalizedStringResource
     @ViewBuilder var content: () -> Content
 
     var body: some View {
@@ -369,7 +369,7 @@ struct LiminalCard<Content: View>: View {
         .background(Color.liminalSurfaceContainer)
         .overlay(Rectangle().stroke(Color.liminalOutlineVariant, lineWidth: 1))
         .overlay(alignment: .topLeading) {
-            Text(title.uppercased())
+            Text(String(localized: title).uppercased())
                 .font(.spaceMono(size: 12))
                 .tracking(3)
                 .foregroundColor(.liminalOnSurfaceVariant)
@@ -383,6 +383,9 @@ struct LiminalCard<Content: View>: View {
 // MARK: - Thin outlined chip
 
 struct LiminalChip: View {
+    /// Already-resolved display text. Callers pass either a verbatim
+    /// string (waveform names, which stay English) or
+    /// `String(localized:)` (image location names).
     let text: String
     /// When true, renders filled with CRT green (selected state) instead of
     /// the default thin-outline/dim-text look. Purely visual — this struct

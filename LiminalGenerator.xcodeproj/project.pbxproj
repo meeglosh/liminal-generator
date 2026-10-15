@@ -12,6 +12,7 @@
 		19644928E67692E08C4E17EF /* loop_70_drift.wav in Resources */ = {isa = PBXBuildFile; fileRef = A604485A59B89E1D347C0D4B /* loop_70_drift.wav */; };
 		28F299E3E9483EEB9CA06973 /* DrumBreakArrangement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AE451E0BDE940BCB306110E /* DrumBreakArrangement.swift */; };
 		2D6EF04FF881CAC79628195C /* RenderScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBB9058C5EF94A168BEECBC4 /* RenderScreen.swift */; };
+		2DC54EAD72D4EE4CE2B561EA /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = E8CD90AE929C7CBE40A90613 /* Localizable.xcstrings */; };
 		41FE843A733E3E7FF1A037CF /* loop_95_vinyl.wav in Resources */ = {isa = PBXBuildFile; fileRef = 98D10E3700D3289E6BA4A194 /* loop_95_vinyl.wav */; };
 		4351A1FE6FECA6169BD13FA1 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C805D5994D5C0DF3AB7A6A1C /* Assets.xcassets */; };
 		447A5299411CD3434591FEC5 /* SynthVoice.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3DB40B4A997464FA14237CFB /* SynthVoice.swift */; };
@@ -134,6 +135,7 @@
 		DE6218B657A6195E2D2774BA /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
 		E450C087094BF268C8B13A65 /* BasslinePattern.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BasslinePattern.swift; sourceTree = "<group>"; };
 		E59A6E5E775C47F05D85F34E /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+		E8CD90AE929C7CBE40A90613 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		E94A99E1BEDC453633F67AFB /* VHSTimestamp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VHSTimestamp.swift; sourceTree = "<group>"; };
 		FA1EB060083888CB23AB2115 /* ClipRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipRenderer.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -230,6 +232,7 @@
 			children = (
 				C805D5994D5C0DF3AB7A6A1C /* Assets.xcassets */,
 				3DE0A4BEBBBDDA25E2234B4A /* ImageLibrary.swift */,
+				E8CD90AE929C7CBE40A90613 /* Localizable.xcstrings */,
 				45F7F7E881837AF32009D5C4 /* Fonts */,
 				EE2A7CD65CF4C0B13D023DDB /* Loops */,
 			);
@@ -392,7 +395,12 @@
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				Base,
+				de,
 				en,
+				es,
+				fr,
+				ja,
+				"pt-BR",
 			);
 			mainGroup = DFA9863DE683270C48DD3E8B;
 			minimizedProjectReferenceProxies = 1;
@@ -423,6 +431,7 @@
 			files = (
 				4351A1FE6FECA6169BD13FA1 /* Assets.xcassets in Resources */,
 				7B85C78CAC3B42256AA20E28 /* LICENSES-LOOPS.md in Resources */,
+				2DC54EAD72D4EE4CE2B561EA /* Localizable.xcstrings in Resources */,
 				DE7046B8FC97CEC478B4311C /* OFL.txt in Resources */,
 				85387023CB44EDBC26E63B9B /* SpaceMono-Bold.ttf in Resources */,
 				58DF960743D17DD58CB6D970 /* SpaceMono-Regular.ttf in Resources */,

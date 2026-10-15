@@ -36,15 +36,15 @@ enum ClipRenderError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .imageNotFound(let name):
-            return "Could not load source image \u{201C}\(name)\u{201D}."
+            return String(localized: "Could not load source image \u{201C}\(name)\u{201D}.")
         case .writerInitFailed(let reason):
-            return "Could not start the video encoder: \(reason)"
+            return String(localized: "Could not start the video encoder: \(reason)")
         case .writerFailed(let reason):
-            return "Video encoding failed: \(reason)"
+            return String(localized: "Video encoding failed: \(reason)")
         case .pixelBufferPoolFailed:
-            return "Could not allocate a video frame buffer."
+            return String(localized: "Could not allocate a video frame buffer.")
         case .audioReadFailed(let reason):
-            return "Could not read the rendered audio track: \(reason)"
+            return String(localized: "Could not read the rendered audio track: \(reason)")
         }
     }
 }
