@@ -89,3 +89,4 @@ first completed render and share (a success moment), never on launch. Apple limi
 - What's New written and applied to both locales 2026-10-14 (info-button change and one-time rating prompt).
 - Still missing on 1.0.2: a build, and updated screenshots (current ones show the old gear icon).
 - 2026-10-14: build 17 (info icon) uploaded and attached to 1.0.2; screenshots recaptured from it and re-uploaded (IDs in `screenshot-upload-1.0.2.json`); App Review notes in ASC updated from "gear" to "info (i) button". 1.0.2 is ready to submit. Localization beyond en-US/es-MX is deferred to 1.1.
+- 2026-10-15: version 1.0.2 (build 17) submitted to App Review, submission 62c131bc-1fb1-4db0-962e-10406afecf38, submitted 14:04 UTC, state WAITING_FOR_REVIEW. Release: automatic after approval.
