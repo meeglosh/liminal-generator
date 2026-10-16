@@ -356,8 +356,15 @@ struct RenderScreen: View {
                 .accessibilityIdentifier("doneButton")
             }
 
-            Button("Buy me a coffee") {
+            Button {
                 showTipJar = true
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "cup.and.saucer.fill")
+                        .font(.system(size: 13))
+                        .accessibilityHidden(true)
+                    Text("Buy me a coffee")
+                }
             }
             .font(.spaceMono(size: 13))
             .foregroundColor(.liminalCRTGreenDim)
