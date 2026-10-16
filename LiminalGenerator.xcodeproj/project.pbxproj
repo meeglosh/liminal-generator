@@ -12,6 +12,7 @@
 		1415BDF45719692058872CA9 /* LoopPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45FF0C75F9A539F79B61B5E3 /* LoopPlayer.swift */; };
 		19644928E67692E08C4E17EF /* loop_70_drift.wav in Resources */ = {isa = PBXBuildFile; fileRef = A604485A59B89E1D347C0D4B /* loop_70_drift.wav */; };
 		28F299E3E9483EEB9CA06973 /* DrumBreakArrangement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AE451E0BDE940BCB306110E /* DrumBreakArrangement.swift */; };
+		2A834660E4B83AFF05407282 /* AppStoreScreenshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B643C676B48A16E59DFA893C /* AppStoreScreenshotTests.swift */; };
 		2D6EF04FF881CAC79628195C /* RenderScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBB9058C5EF94A168BEECBC4 /* RenderScreen.swift */; };
 		2DC54EAD72D4EE4CE2B561EA /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = E8CD90AE929C7CBE40A90613 /* Localizable.xcstrings */; };
 		41FE843A733E3E7FF1A037CF /* loop_95_vinyl.wav in Resources */ = {isa = PBXBuildFile; fileRef = 98D10E3700D3289E6BA4A194 /* loop_95_vinyl.wav */; };
@@ -129,6 +130,7 @@
 		A604485A59B89E1D347C0D4B /* loop_70_drift.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = loop_70_drift.wav; sourceTree = "<group>"; };
 		A99DEDE49CE908578E16081A /* AudioEngineController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioEngineController.swift; sourceTree = "<group>"; };
 		AEEFFE8CF57B65D8550A46DC /* WowFlutterProcessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WowFlutterProcessor.swift; sourceTree = "<group>"; };
+		B643C676B48A16E59DFA893C /* AppStoreScreenshotTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStoreScreenshotTests.swift; sourceTree = "<group>"; };
 		BB27DEEC82B6294A44EB7710 /* loop_80_shadow.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = loop_80_shadow.wav; sourceTree = "<group>"; };
 		C306B45D3A52C1C683288F17 /* DSPMath.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSPMath.swift; sourceTree = "<group>"; };
 		C5B65A73A317D975050875AF /* VHSImageCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VHSImageCard.swift; sourceTree = "<group>"; };
@@ -310,6 +312,7 @@
 		EEF83DDF30A26AFE66B92EDA /* LiminalGeneratorUITests */ = {
 			isa = PBXGroup;
 			children = (
+				B643C676B48A16E59DFA893C /* AppStoreScreenshotTests.swift */,
 				34393EB08C5A6791F4CB330D /* LanguagePickerTests.swift */,
 				D1CB1680ACDFF673331D8A4D /* LiminalGeneratorFlowTests.swift */,
 				7B1717BBE326BADB43D49977 /* LocalizationScreenshotTests.swift */,
@@ -515,6 +518,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				2A834660E4B83AFF05407282 /* AppStoreScreenshotTests.swift in Sources */,
 				FDB729F350F318A68F8BCC20 /* LanguagePickerTests.swift in Sources */,
 				574DD6475E7E50521F148D4D /* LiminalGeneratorFlowTests.swift in Sources */,
 				0531946FE581CE65F9C9AA7C /* LocalizationScreenshotTests.swift in Sources */,
