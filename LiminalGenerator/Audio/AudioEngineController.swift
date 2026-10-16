@@ -351,15 +351,20 @@ final class AudioEngineController: ObservableObject {
         // Deterministic per the product ask: the render either includes the
         // same break schedule the user would hear live, or (BREAKS off)
         // none at all -- no separate randomization for the export.
-        let drumBreaks = (seed.drumsEnabled && seed.breaksEnabled) ? DrumBreakArrangement(
+        // The same arrangement carries the intro drop (drums+bass gated for
+        // the first 4 bars) whenever drums and/or bass are on for the export.
+        let introDrop = seed.drumsEnabled || seed.bassEnabled
+        let planBreaks = seed.drumsEnabled && seed.breaksEnabled
+        let drumBreaks = (introDrop || planBreaks) ? DrumBreakArrangement(
             duration: duration, fadeIn: fadeIn, fadeOut: fadeOut,
-            bpm: seed.loopBuffer.bpm, speed: seed.speed, sampleRate: sampleRate) : nil
+            bpm: seed.loopBuffer.bpm, speed: seed.speed, sampleRate: sampleRate,
+            introDrop: introDrop, breaksEnabled: planBreaks) : nil
         #if DEBUG
         if let drumBreaks {
             let times = drumBreaks.windows.map {
                 String(format: "%.2f–%.2fs", Double($0.lowerBound) / sampleRate, Double($0.upperBound) / sampleRate)
             }
-            print("[DRUM_BREAKS] " + times.joined(separator: ", "))
+            print("[DRUM_BREAKS] intro drop at \(String(format: "%.2f", Double(drumBreaks.introFrames) / sampleRate))s; breaks " + times.joined(separator: ", "))
         }
         #endif
 

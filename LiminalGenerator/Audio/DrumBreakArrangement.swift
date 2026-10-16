@@ -3,16 +3,31 @@ import Foundation
 /// Export-only arrangement. Uses the same rounded sixteenth-note duration as
 /// the DSP clock, so the loop keeps running silently and returns in phase.
 struct DrumBreakArrangement {
+    /// Export intro drop: drums+bass stay gated for exactly one progression
+    /// (4 bars = 64 ticks) and enter together on the downbeat of bar 5.
+    static let introBars = 4
+
     let windows: [Range<Int64>]
     let rampFrames: Int64
+    /// Frame of the drop (downbeat of bar 5); 0 when there is no intro gate.
+    let introFrames: Int64
 
+    /// - introDrop: gate drums+bass for the first `introBars` bars. Callers
+    ///   pass true only when drums and/or bass are enabled for the export.
+    /// - breaksEnabled: whether the two mid-clip breaks are planned
+    ///   (callers pass `drumsEnabled && breaksEnabled`).
     init(duration: Double, fadeIn: Double, fadeOut: Double,
-         bpm: Int, speed: Float, sampleRate: Double) {
+         bpm: Int, speed: Float, sampleRate: Double,
+         introDrop: Bool = false, breaksEnabled: Bool = true) {
         rampFrames = max(1, Int64((sampleRate * 0.005).rounded()))
         let tickFrames = max(1, Int64(((sampleRate * 60 / (Double(max(1, bpm)) * 4))
                                       / Double(speedMultiplier(speed))).rounded()))
         let barFrames = tickFrames * 16
         let totalFrames = Int64(max(0, duration) * sampleRate)
+        introFrames = introDrop ? barFrames * Int64(Self.introBars) : 0
+        // Breaks never touch the intro: the long-standing "no break before
+        // bar 5" rule (4 bars) is exactly the intro length, so break
+        // placement is identical with or without the intro gate.
         let firstAllowed = max(barFrames * 4, Int64(max(0, fadeIn) * sampleRate) + rampFrames)
         let lastAllowed = min(totalFrames - barFrames * 4,
                               totalFrames - Int64(max(0, fadeOut) * sampleRate) - rampFrames)
@@ -20,7 +35,7 @@ struct DrumBreakArrangement {
         // Two two-bar breakdowns, roughly one-third and two-thirds through
         // the clip. Return on a four-bar phrase boundary. Short clips may
         // fit only one or none; never crowd the intro, outro or each other.
-        for fraction in [1.0 / 3.0, 2.0 / 3.0] {
+        for fraction in (breaksEnabled ? [1.0 / 3.0, 2.0 / 3.0] : []) {
             let phrase = Int64((Double(totalFrames) * fraction / Double(barFrames * 4)).rounded())
             let end = phrase * 4 * barFrames
             let start = end - 2 * barFrames
@@ -36,6 +51,12 @@ struct DrumBreakArrangement {
     /// (see `LiminalDSPCore.render`) -- melody/pads keep playing through it.
     @inline(__always)
     func gain(at frame: Int64) -> Float {
+        if introFrames > 0 {
+            if frame < introFrames { return 0 }
+            if frame < introFrames + rampFrames {
+                return Float(frame - introFrames) / Float(rampFrames)
+            }
+        }
         for window in windows {
             if frame < window.lowerBound - rampFrames { return 1 }
             if frame < window.lowerBound {

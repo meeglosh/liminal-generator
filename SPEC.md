@@ -509,6 +509,15 @@ break arrangement from build 9. Full detail is in `docs/Drum-breaks.md` (kept as
   progress releases the gate immediately (on the order of the shared ~6ms smoothing ramp) rather than waiting
   for the next bar boundary.
 
+**Export intro drop.** In the offline render only (live playback is untouched), when drums and/or bass are enabled
+the clip opens with the synth layer alone (pads, melody, breathing) for exactly one progression -- 4 bars (64
+ticks of the musical clock, so it follows tempo/SPEED) -- and drums AND bass enter together on the downbeat of bar 5.
+It reuses the break gate: `DrumBreakArrangement(introDrop:)` returns gain 0 before the drop and the same 5 ms
+click-free ramp after it, applied to both buses. The drum loop cursor is reset on the drop frame so drums enter
+from their own beginning. The existing "no break before bar 5" rule keeps breaks clear of the intro and in their
+previous positions; the BREAKS toggle only controls the breaks, not the intro. With neither drums nor bass enabled
+no arrangement is built and the export is unchanged. The clip's audio fade-in is applied after the DSP as before.
+
 ## CRT power-switch click sounds (2026-09-17)
 New `Audio/PowerClickGenerator.swift`: `play()` and `pause()` each fire a short, fully procedural CRT
 power-switch click — plain-Swift synthesis, zero audio assets. Each click layers a ~1.2ms-decay broadband

@@ -10,6 +10,19 @@ The intro/outro retain at least four bars of drums; breaks stay outside the expo
 
 Implementation: `DrumBreakArrangement.swift` plans sample ranges using the same rounded sixteenth-note duration as `LiminalDSPCore`. `AudioEngineController.performOfflineRender` only constructs an arrangement when `seed.drumsEnabled && seed.breaksEnabled`, and supplies it to its private offline DSP. The gain is applied after the drum lowpass, and now to the bass voice's output too, before the shared mix/effects.
 
+## Export intro drop
+
+In the offline render only (live playback is untouched), when drums and/or bass are enabled
+the clip opens with the synth layer alone (pads, melody, breathing) for exactly one progression -- 4 bars (64
+ticks of the musical clock, so it follows tempo/SPEED) -- and drums AND bass enter together on the downbeat of bar 5.
+It reuses the break gate: `DrumBreakArrangement(introDrop:)` returns gain 0 before the drop and the same 5 ms
+click-free ramp after it, applied to both buses. The drum loop cursor is reset on the drop frame so drums enter
+from their own beginning. The existing "no break before bar 5" rule keeps breaks clear of the intro and in their
+previous positions; the BREAKS toggle only controls the breaks, not the intro. With neither drums nor bass enabled
+no arrangement is built and the export is unchanged. The clip's audio fade-in is applied after the DSP as before.
+
+Harness coverage: bars 1-4 drum+bass buses match a silenced reference exactly, bar 5 onward matches continuous playback (phase), breaks are unchanged by the intro, and a drums/bass-off export is bit-identical. Note the mix bus has dynamics state, so post-drop comparisons are made after a ~1 s settle.
+
 ## Live path: tempo-independent musical-clock schedule
 
 Live playback's tempo isn't fixed — it changes with the SPEED slider and with loop swaps — so a frame-based plan like the export's would drift out of phase over a long session. Instead, live breaks are driven entirely by the shared musical clock already inside `LiminalDSPCore` (`globalTickIndex` / `ticksPerBar`, the same 16-tick bar grid the pad progression and loop-swap logic use).

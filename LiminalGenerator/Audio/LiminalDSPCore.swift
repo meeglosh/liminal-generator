@@ -453,6 +453,13 @@ final class LiminalDSPCore: @unchecked Sendable {
 
             let (melL, melR) = voiceBank.nextSample()
             let (padL, padR) = padBank.nextSample()
+            // Export intro drop: restart the drum loop from its downbeat on
+            // the exact frame the drums+bass enter (bar 5), so they come in
+            // in phase regardless of loop length. Offline-only (arrangement).
+            if let drumBreakArrangement, drumBreakArrangement.introFrames > 0,
+               elapsedSamples - 1 == drumBreakArrangement.introFrames {
+                loopPlayer.resetCursor()
+            }
             let loopRaw: Float = activeTempoUsesLoop ? loopPlayer.nextSample(rate: speedMult) : 0
             // Keep the loop cursor, shared tempo, synth and breathing clock
             // running through a break; gate only the drum AND bass audio

@@ -136,6 +136,96 @@ struct DrumBreakTests {
         }
         print("Drum break schedule, ramps, synth/bass continuity and loop phase: PASS")
 
+        // MARK: - Export intro drop: synth alone for bars 1-4, drums+bass at bar 5
+
+        // Planner: intro ends on the bar-5 downbeat; breaks are unchanged by
+        // the intro and never overlap it; no intro flag -> no gate at all.
+        for bpm in [70, 80, 95] {
+            for speed: Float in [0, 0.5, 1] {
+                let r = 44_100.0
+                let tick = Int64(((r * 60 / (Double(bpm) * 4)) / Double(speedMultiplier(speed))).rounded())
+                let withIntro = DrumBreakArrangement(duration: 120, fadeIn: 2, fadeOut: 3, bpm: bpm,
+                                                     speed: speed, sampleRate: r, introDrop: true)
+                let noIntro = DrumBreakArrangement(duration: 120, fadeIn: 2, fadeOut: 3, bpm: bpm,
+                                                   speed: speed, sampleRate: r)
+                precondition(withIntro.introFrames == tick * 64)
+                precondition(noIntro.introFrames == 0 && noIntro.gain(at: 0) == 1)
+                precondition(withIntro.windows == noIntro.windows && withIntro.windows.count == 2,
+                             "intro must not move breaks")
+                for w in withIntro.windows { precondition(w.lowerBound >= withIntro.introFrames + withIntro.rampFrames) }
+                precondition(withIntro.gain(at: 0) == 0 && withIntro.gain(at: withIntro.introFrames - 1) == 0)
+                precondition(withIntro.gain(at: withIntro.introFrames + withIntro.rampFrames) == 1)
+                for f in Int64(1)...(withIntro.rampFrames + 1) {
+                    let g0 = withIntro.gain(at: withIntro.introFrames + f - 1), g1 = withIntro.gain(at: withIntro.introFrames + f)
+                    precondition(abs(g1 - g0) <= 1 / Float(withIntro.rampFrames) + 0.00001)
+                }
+            }
+        }
+        // Breaks off + intro: no windows, intro still present.
+        let introOnly = DrumBreakArrangement(duration: 120, fadeIn: 2, fadeOut: 3, bpm: 80, speed: 0.5,
+                                             sampleRate: 44_100, introDrop: true, breaksEnabled: false)
+        precondition(introOnly.windows.isEmpty && introOnly.introFrames > 0)
+
+        // DSP: bar = 24_000 frames at 8 kHz / 80 BPM / speed 0.5.
+        do {
+            let introPlan = DrumBreakArrangement(duration: 120, fadeIn: 2, fadeOut: 3, bpm: 80, speed: 0.5,
+                                                 sampleRate: rate, introDrop: true)
+            let introEnd = Int(introPlan.introFrames)
+            precondition(introEnd == 24_000 * 4)
+            for (drumsOn, bassOn) in [(true, true), (true, false), (false, true)] {
+                func c(_ arr: DrumBreakArrangement?, silent: Bool = false, breaks: Bool = true) -> LiminalDSPCore {
+                    LiminalDSPCore(pattern: scene, beat: beat, loopBuffer: loop, bassPattern: bass,
+                        space: 0, age: 0, drumsEnabled: drumsOn, drumLevel: silent ? 0 : 0.65, breaksEnabled: breaks,
+                        speed: 0.5, color: 0.5, waveform: .sine, bassEnabled: bassOn, bassColor: 0.5,
+                        bassLevel: silent ? 0 : 0.65, nostalgia: 0, sampleRate: rate, drumBreakArrangement: arr)
+                }
+                let arranged = c(introPlan), continuous = c(nil, breaks: false), silent = c(nil, silent: true, breaks: false)
+                var a = [Float](repeating: 0, count: 512), b = a, s = a
+                var introErr: Float = 0, bar5Audible: Float = 0, afterErr: Float = 0
+                for start in stride(from: 0, to: introEnd + 24_000 * 4, by: 256) {
+                    a.withUnsafeMutableBufferPointer { arranged.render(into: $0.baseAddress!, frames: 256) }
+                    b.withUnsafeMutableBufferPointer { continuous.render(into: $0.baseAddress!, frames: 256) }
+                    s.withUnsafeMutableBufferPointer { silent.render(into: $0.baseAddress!, frames: 256) }
+                    for i in 0..<256 {
+                        let f = start + i
+                        if f < introEnd { introErr = max(introErr, abs(a[i*2] - s[i*2])) }
+                        else {
+                            bar5Audible = max(bar5Audible, abs(a[i*2] - s[i*2]))
+                            if f >= introEnd + 16_000 { afterErr = max(afterErr, abs(a[i*2] - b[i*2])) }
+                        }
+                    }
+                }
+                precondition(introErr < 0.00001, "drums/bass leaked into intro (drums=\(drumsOn) bass=\(bassOn)): \(introErr)")
+                precondition(bar5Audible > 0.01, "drums/bass absent after the drop")
+                if !bassOn || drumsOn { precondition(afterErr < 0.00001, "post-drop not in phase: \(afterErr)") }
+                print("Intro drop drums=\(drumsOn) bass=\(bassOn): intro error=\(introErr), post-drop error=\(afterErr)")
+            }
+            // Neither drums nor bass: caller builds no arrangement; export is
+            // bit-identical to a plain core.
+            func off(_ arr: DrumBreakArrangement?) -> LiminalDSPCore {
+                LiminalDSPCore(pattern: scene, beat: beat, loopBuffer: loop, bassPattern: bass,
+                    space: 0, age: 0, drumsEnabled: false, drumLevel: 0.65, breaksEnabled: true,
+                    speed: 0.5, color: 0.5, waveform: .sine, bassEnabled: false, bassColor: 0.5,
+                    bassLevel: 0.65, nostalgia: 0, sampleRate: rate, drumBreakArrangement: arr)
+            }
+            var p = [Float](repeating: 0, count: 512), q = p
+            let x = off(nil), y = off(nil)
+            var d: Float = 0
+            for _ in stride(from: 0, to: 200_000, by: 256) {
+                p.withUnsafeMutableBufferPointer { x.render(into: $0.baseAddress!, frames: 256) }
+                q.withUnsafeMutableBufferPointer { y.render(into: $0.baseAddress!, frames: 256) }
+                for i in 0..<512 { d = max(d, abs(p[i] - q[i])) }
+            }
+            precondition(d == 0)
+            // Break windows still gate after the intro (breaks + intro together).
+            let both = c2Windows(introPlan)
+            precondition(both)
+        }
+        func c2Windows(_ plan: DrumBreakArrangement) -> Bool {
+            plan.windows.count == 2 && plan.windows.allSatisfy { plan.gain(at: $0.lowerBound) == 0 && plan.gain(at: $0.lowerBound - plan.rampFrames) == 1 }
+        }
+        print("Export intro drop (planner, DSP gating, phase, off-case): PASS")
+
         // MARK: - Live playback: deterministic tick-clock-driven schedule
 
         // A fast, synthetic tempo keeps this section's render volume small
