@@ -1,3 +1,14 @@
+## RESUME HERE (2026-10-16, later) — 1.1 (20) resubmitted to App Review
+The first 1.1 submission (build 18) was canceled at the owner's request so listings could be added. **1.1 build 20**
+(commit `7f7073a`, delivery `1ec20687-c6a3-41b4-ac0f-6525249fe72c`) was attached and resubmitted 2026-10-16T15:50:45Z,
+review submission `d1821ebc-6726-47b9-b606-8a1990fa93d7`, WAITING_FOR_REVIEW, release AFTER_APPROVAL.
+Build 20 adds over 18: coffee-cup icon on the "Buy me a coffee" link; export intro drop (rendered clips play synths alone
+for 4 bars, then drums+bass enter together on bar 5; live playback unchanged; see SPEC.md / docs/Drum-breaks.md).
+Store listings now: en-US, es-MX, pt-BR, fr-FR, de-DE, ja (text in `docs/app-store/listings/`, screenshots in
+`docs/app-store/screenshots-captioned/<locale>/`; es-MX uses the en-US screenshots). All new copy is machine-written.
+Opt-in `AppStoreScreenshotTests` recaptures the five store states (needs LG_SHOT_LANG + LG_SHOT_DIR).
+Build 19 was archived but never uploaded. Next build number: 21. Branch not pushed or merged.
+
 ## RESUME HERE (2026-10-16) — 1.1 (18) submitted to App Review
 1.0.2 (17) was approved and is READY_FOR_SALE. Owner tested TestFlight 1.1 (18) on device and approved it.
 App Store version **1.1** (`c8754c5b-2bec-469e-9245-b1fc599f02ab`, build 18, release AFTER_APPROVAL) was submitted
