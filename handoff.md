@@ -1,3 +1,11 @@
+## RESUME HERE (2026-10-16) — 1.1 (18) submitted to App Review
+1.0.2 (17) was approved and is READY_FOR_SALE. Owner tested TestFlight 1.1 (18) on device and approved it.
+App Store version **1.1** (`c8754c5b-2bec-469e-9245-b1fc599f02ab`, build 18, release AFTER_APPROVAL) was submitted
+2026-10-16T14:33:11Z, review submission `792491e9-2d75-4f97-b8b0-d760ee344d53`, state WAITING_FOR_REVIEW.
+What's New set for en-US and es-MX (new languages + picker in About). Listing text/screenshots carried over from 1.0.2;
+no store listings exist yet for pt-BR, fr, de, ja (follow-up). Branch `codex/localization-1.1` not yet pushed/merged.
+Next build number: 19. Next step: monitor review.
+
 ## TestFlight build 1.1 (18) — 2026-10-16 (localization test build)
 Uploaded from commit `618a05f` on `codex/localization-1.1` (marketing version bumped to **1.1**, build **18**). Delivery UUID
 `beeaccc8-61a3-4b62-87e4-b56c96fc79fa`. Archive/IPA in `/tmp/liminal-testflight-18/`. Release bundle verified to contain
