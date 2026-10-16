@@ -1,3 +1,12 @@
+## TestFlight build 1.1 (18) — 2026-10-16 (localization test build)
+Uploaded from commit `618a05f` on `codex/localization-1.1` (marketing version bumped to **1.1**, build **18**). Delivery UUID
+`beeaccc8-61a3-4b62-87e4-b56c96fc79fa`. Archive/IPA in `/tmp/liminal-testflight-18/`. Release bundle verified to contain
+de/en/es/fr/ja/pt-BR `.lproj`. TestFlight only: NOT attached to any App Store version; 1.0.2 (17) review untouched.
+Purpose: owner on-device test of the About-sheet language switcher. **Next build number: 19.**
+Test status 2026-10-15: main scheme UI suite passed on iPhone 17 Pro 26.5 (4/4 incl. LanguagePickerTests). TipStoreTests
+skip on 26.5 (known StoreKit config rejection); an iOS 27.0 attempt hung overnight in the app and was killed (no result).
+Still open from the resume list: per-language screenshots, watermark before/after compare, native translation review.
+
 ## RESUME HERE (2026-10-15) — status when the Mac was rebooted
 **App Store:** version **1.0.2 (build 17)** was submitted to App Review 2026-10-15T14:04Z (submission
 `62c131bc-1fb1-4db0-962e-10406afecf38`), state WAITING_FOR_REVIEW, release AFTER_APPROVAL. It contains the info (i)
