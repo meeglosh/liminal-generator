@@ -1,4 +1,47 @@
-## RESUME HERE (2026-10-16, later) — 1.1 (20) resubmitted to App Review
+## RESUME HERE (2026-10-17)
+**Read this section first; everything below it is history.**
+
+**Branches.** `main` now contains all shipped and in-review work (fast-forwarded from `codex/localization-1.1`, which
+already included `codex/ntscrt-vhs-slideshow`). Work on `main` or branch from it. The two codex branches are kept on the
+remote for reference but are fully merged. `codex/app-store-pages` is an ORPHAN branch (unrelated history) that serves the
+public privacy/support documents the App Store listing links to
+(`https://github.com/meeglosh/liminal-generator/blob/codex/app-store-pages/PRIVACY.md`). Never merge or delete it.
+
+**App Store.**
+| Version | Build | State |
+|---|---|---|
+| 1.0.2 | 17 | Live (READY_FOR_SALE) |
+| 1.1 | 20 | WAITING_FOR_REVIEW, submitted 2026-10-16T15:50:45Z, release AFTER_APPROVAL |
+- 1.1 version id `c8754c5b-2bec-469e-9245-b1fc599f02ab`; review submission `d1821ebc-6726-47b9-b606-8a1990fa93d7`;
+  build 20 id `1ec20687-c6a3-41b4-ac0f-6525249fe72c` (commit `7f7073a`).
+- 1.1 contents: app localized into es, pt-BR, fr, de, ja with an in-app language picker in About; coffee-cup icon on the
+  "Buy me a coffee" link; export intro drop (rendered clips play synths alone for 4 bars, then drums+bass enter together
+  on bar 5; live playback unchanged; see SPEC.md and docs/Drum-breaks.md).
+- Store listings exist for en-US, es-MX, pt-BR, fr-FR, de-DE, ja. Text: `docs/app-store/listings/<locale>.json`.
+  Screenshots: `docs/app-store/screenshots-captioned/<locale>/` (raw captures in `docs/app-store/screenshots/<locale>/`);
+  es-MX shows the en-US screenshots. Recapture with the opt-in `AppStoreScreenshotTests`
+  (`TEST_RUNNER_LG_SHOT_LANG=<lang> TEST_RUNNER_LG_SHOT_DIR=<dir>`, iPhone 17 Pro Max 26.5 sim for 1320x2868), then
+  caption to match the existing images (the PIL captioning script was a session scratchpad file and is not in the repo).
+- **Next build number: 21.** Build 19 was archived but never uploaded.
+
+**Next steps.**
+1. Monitor App Review for 1.1; answer reviewer questions or fix rejections. Approval publishes automatically.
+2. Owner has not yet heard the intro drop on a device (build 20 never went to TestFlight on its own; build 18 was the one
+   tested). Listen to a rendered clip after 1.1 ships.
+3. Native-speaker review of all machine-written copy: in-app strings (`Localizable.xcstrings`) and store listings/captions.
+4. Still unverified: TipStoreTests can't run headlessly on iOS 26.4/26.5 (StoreKit config rejected; tests skip) and an
+   iOS 27.0 attempt hung; watermark glow before/after comparison never done.
+5. Ideas not started: App Preview video, en-GB/en-AU listings for extra keyword fields.
+
+**Working notes.**
+- Owner prefers Claude to orchestrate Sonnet subagents for app code, and to ask before uploading or submitting.
+- ASC API: key U2X2ZXV4FF; issuer id is in local Claude memory, never commit it. Python `cryptography` is not installed;
+  sign the ES256 JWT with the `openssl` CLI. The ASC API was flaky (500s, timeouts, spurious 401s): re-read state before
+  retrying any POST. Creating an appInfoLocalization auto-creates the matching appStoreVersionLocalization. New
+  localizations cannot be added once a version is submitted; cancel the review submission first.
+- New App Store versions do NOT carry over promotional text; set it explicitly.
+
+## History (2026-10-16, later) — 1.1 (20) resubmitted to App Review
 The first 1.1 submission (build 18) was canceled at the owner's request so listings could be added. **1.1 build 20**
 (commit `7f7073a`, delivery `1ec20687-c6a3-41b4-ac0f-6525249fe72c`) was attached and resubmitted 2026-10-16T15:50:45Z,
 review submission `d1821ebc-6726-47b9-b606-8a1990fa93d7`, WAITING_FOR_REVIEW, release AFTER_APPROVAL.
@@ -9,7 +52,7 @@ Store listings now: en-US, es-MX, pt-BR, fr-FR, de-DE, ja (text in `docs/app-sto
 Opt-in `AppStoreScreenshotTests` recaptures the five store states (needs LG_SHOT_LANG + LG_SHOT_DIR).
 Build 19 was archived but never uploaded. Next build number: 21. Branch not pushed or merged.
 
-## RESUME HERE (2026-10-16) — 1.1 (18) submitted to App Review
+## History (2026-10-16) — 1.1 (18) submitted, later canceled
 1.0.2 (17) was approved and is READY_FOR_SALE. Owner tested TestFlight 1.1 (18) on device and approved it.
 App Store version **1.1** (`c8754c5b-2bec-469e-9245-b1fc599f02ab`, build 18, release AFTER_APPROVAL) was submitted
 2026-10-16T14:33:11Z, review submission `792491e9-2d75-4f97-b8b0-d760ee344d53`, state WAITING_FOR_REVIEW.
@@ -26,7 +69,7 @@ Test status 2026-10-15: main scheme UI suite passed on iPhone 17 Pro 26.5 (4/4 i
 skip on 26.5 (known StoreKit config rejection); an iOS 27.0 attempt hung overnight in the app and was killed (no result).
 Still open from the resume list: per-language screenshots, watermark before/after compare, native translation review.
 
-## RESUME HERE (2026-10-15) — status when the Mac was rebooted
+## History (2026-10-15) — status when the Mac was rebooted (simulator outage resolved 2026-10-15)
 **App Store:** version **1.0.2 (build 17)** was submitted to App Review 2026-10-15T14:04Z (submission
 `62c131bc-1fb1-4db0-962e-10406afecf38`), state WAITING_FOR_REVIEW, release AFTER_APPROVAL. It contains the info (i)
 icon (replaced the gear), the one-time review prompt, new ASO keywords/promo text/description, captioned
